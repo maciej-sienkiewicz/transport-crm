@@ -1,3 +1,4 @@
+// src/features/children/types.ts
 import { Address } from '@/shared/types/api';
 
 export type ChildStatus = 'ACTIVE' | 'INACTIVE' | 'TEMPORARY_INACTIVE';
@@ -55,9 +56,10 @@ export interface ChildSchedule {
     name: string;
     days: DayOfWeek[];
     pickupTime: string;
-    pickupAddress: ScheduleAddress;
+    pickupAddress?: ScheduleAddress;
     dropoffTime: string;
-    dropoffAddress: ScheduleAddress;
+    dropoffAddress?: ScheduleAddress;
+    specialInstructions?: string;
     active: boolean;
 }
 
@@ -152,7 +154,7 @@ export interface CreateScheduleRequest {
 export interface UpdateScheduleRequest {
     name: string;
     days: DayOfWeek[];
-    pickupTime: string; // Format: HH:mm
+    pickupTime: string;
     pickupAddress: {
         label: string;
         street: string;

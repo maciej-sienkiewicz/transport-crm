@@ -1,3 +1,4 @@
+// src/features/children/api/schedulesApi.ts
 import { apiClient } from '@/shared/api/client';
 import {
     ChildSchedule,
@@ -10,6 +11,11 @@ export const schedulesApi = {
         const response = await apiClient.get<{ schedules: ChildSchedule[] }>(
             `/children/${childId}/schedules`
         );
+        return response.data;
+    },
+
+    getById: async (scheduleId: string): Promise<ChildSchedule> => {
+        const response = await apiClient.get<ChildSchedule>(`/schedules/${scheduleId}`);
         return response.data;
     },
 

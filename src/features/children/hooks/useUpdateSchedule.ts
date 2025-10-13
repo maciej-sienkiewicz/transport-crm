@@ -12,6 +12,7 @@ export const useUpdateSchedule = (scheduleId: string, childId: string) => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['child', childId] });
             queryClient.invalidateQueries({ queryKey: ['schedules', childId] });
+            queryClient.invalidateQueries({ queryKey: ['schedule', scheduleId] });
             toast.success('Harmonogram został zaktualizowany');
         },
     });

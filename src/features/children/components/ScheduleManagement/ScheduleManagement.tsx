@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, Clock, MapPin } from 'lucide-react';
+// src/features/children/components/ScheduleManagement/ScheduleManagement.tsx
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Clock, ChevronDown, ChevronUp, Home, School } from 'lucide-react';
 import styled from 'styled-components';
-import { ChildSchedule } from '../../types';
 import { useSchedules } from '../../hooks/useSchedules';
+import { useSchedule } from '../../hooks/useSchedule';
 import { useCreateSchedule } from '../../hooks/useCreateSchedule';
 import { useUpdateSchedule } from '../../hooks/useUpdateSchedule';
 import { useDeleteSchedule } from '../../hooks/useDeleteSchedule';
@@ -17,6 +18,12 @@ const SectionHeader = styled.div`
     justify-content: space-between;
     align-items: center;
     margin-bottom: ${({ theme }) => theme.spacing.lg};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+        flex-direction: column;
+        gap: ${({ theme }) => theme.spacing.md};
+        align-items: flex-start;
+    }
 `;
 
 const SectionTitle = styled.h2`
@@ -25,46 +32,90 @@ const SectionTitle = styled.h2`
     color: ${({ theme }) => theme.colors.slate[900]};
 `;
 
-const SchedulesGrid = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+const SchedulesList = styled.div`
+    display: flex;
+    flex-direction: column;
     gap: ${({ theme }) => theme.spacing.md};
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
-        grid-template-columns: 1fr;
-    }
 `;
 
 const ScheduleCard = styled.div`
-    padding: ${({ theme }) => theme.spacing.lg};
     background: white;
     border: 1px solid ${({ theme }) => theme.colors.slate[200]};
     border-radius: ${({ theme }) => theme.borderRadius.xl};
+    overflow: hidden;
     transition: all ${({ theme }) => theme.transitions.normal};
 
     &:hover {
         box-shadow: ${({ theme }) => theme.shadows.md};
+        border-color: ${({ theme }) => theme.colors.primary[200]};
     }
 `;
 
 const ScheduleHeader = styled.div`
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: ${({ theme }) => theme.spacing.md};
-    gap: ${({ theme }) => theme.spacing.sm};
+    align-items: center;
+    padding: ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.xl};
+    background: ${({ theme }) => theme.gradients.cardHeader};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.slate[200]};
+    gap: ${({ theme }) => theme.spacing.md};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
+        flex-wrap: wrap;
+    }
+`;
+
+const ScheduleMainInfo = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.lg};
+    flex: 1;
+    min-width: 0;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: ${({ theme }) => theme.spacing.sm};
+        width: 100%;
+    }
 `;
 
 const ScheduleName = styled.h3`
     font-size: 1rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[900]};
-    flex: 1;
+    min-width: 0;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        font-size: 0.9375rem;
+    }
+`;
+
+const ScheduleTime = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.sm};
+    font-size: 0.875rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
+    white-space: nowrap;
+`;
+
+const DaysList = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: ${({ theme }) => theme.spacing.xs};
 `;
 
 const ScheduleActions = styled.div`
     display: flex;
     gap: ${({ theme }) => theme.spacing.xs};
+    align-items: center;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        width: 100%;
+        justify-content: space-between;
+    }
 `;
 
 const IconButton = styled.button`
@@ -85,27 +136,100 @@ const IconButton = styled.button`
         background: ${({ theme }) => theme.colors.slate[100]};
         color: ${({ theme }) => theme.colors.slate[900]};
     }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 `;
 
-const ScheduleInfo = styled.div`
+const ExpandButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+    padding: ${({ theme }) => theme.spacing.xs} ${({ theme }) => theme.spacing.sm};
+    background: transparent;
+    border: none;
+    border-radius: ${({ theme }) => theme.borderRadius.md};
+    color: ${({ theme }) => theme.colors.primary[600]};
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all ${({ theme }) => theme.transitions.fast};
+
+    &:hover {
+        background: ${({ theme }) => theme.colors.primary[50]};
+    }
+`;
+
+const ScheduleDetails = styled.div<{ $isExpanded: boolean }>`
+    max-height: ${({ $isExpanded }) => ($isExpanded ? '1000px' : '0')};
+    opacity: ${({ $isExpanded }) => ($isExpanded ? '1' : '0')};
+    overflow: hidden;
+    transition: all ${({ theme }) => theme.transitions.slow};
+`;
+
+const DetailsContent = styled.div`
+    padding: ${({ theme }) => theme.spacing.xl};
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: ${({ theme }) => theme.spacing.xl};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        grid-template-columns: 1fr;
+        padding: ${({ theme }) => theme.spacing.lg};
+    }
+`;
+
+const AddressBlock = styled.div`
     display: flex;
     flex-direction: column;
     gap: ${({ theme }) => theme.spacing.sm};
-    margin-bottom: ${({ theme }) => theme.spacing.md};
 `;
 
-const InfoRow = styled.div`
+const AddressHeader = styled.div`
     display: flex;
     align-items: center;
     gap: ${({ theme }) => theme.spacing.sm};
     font-size: 0.875rem;
-    color: ${({ theme }) => theme.colors.slate[600]};
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[700]};
+    text-transform: uppercase;
+    letter-spacing: ${({ theme }) => theme.typography.letterSpacing.wide};
 `;
 
-const DaysList = styled.div`
-    display: flex;
-    flex-wrap: wrap;
-    gap: ${({ theme }) => theme.spacing.xs};
+const AddressLabel = styled.div`
+    font-size: 1rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[900]};
+    margin-bottom: ${({ theme }) => theme.spacing.xs};
+`;
+
+const AddressLine = styled.div`
+    font-size: 0.9375rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
+    line-height: 1.5;
+`;
+
+const SpecialInstructions = styled.div`
+    grid-column: 1 / -1;
+    padding: ${({ theme }) => theme.spacing.md};
+    background: ${({ theme }) => theme.colors.slate[50]};
+    border-radius: ${({ theme }) => theme.borderRadius.lg};
+    border-left: 3px solid ${({ theme }) => theme.colors.primary[500]};
+`;
+
+const InstructionsLabel = styled.div`
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[700]};
+    margin-bottom: ${({ theme }) => theme.spacing.xs};
+`;
+
+const InstructionsText = styled.div`
+    font-size: 0.9375rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
+    line-height: 1.5;
 `;
 
 const EmptyState = styled.div`
@@ -115,6 +239,14 @@ const EmptyState = styled.div`
     background: ${({ theme }) => theme.colors.slate[50]};
     border-radius: ${({ theme }) => theme.borderRadius.xl};
     border: 1px dashed ${({ theme }) => theme.colors.slate[300]};
+`;
+
+const LoadingDetails = styled.div`
+    padding: ${({ theme }) => theme.spacing.xl};
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: ${({ theme }) => theme.colors.slate[500]};
 `;
 
 interface ScheduleManagementProps {
@@ -133,31 +265,62 @@ const dayLabels: Record<string, string> = {
 
 export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
-    const [editingSchedule, setEditingSchedule] = useState<ChildSchedule | null>(null);
+    const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+    const [expandedScheduleId, setExpandedScheduleId] = useState<string | null>(null);
 
     const { data: schedulesData, isLoading } = useSchedules(childId);
+    const { data: scheduleDetails, isLoading: isLoadingDetails } = useSchedule(
+        expandedScheduleId || '',
+        !!expandedScheduleId
+    );
+    const { data: editingScheduleData, isLoading: isLoadingEditData } = useSchedule(
+        editingScheduleId || '',
+        !!editingScheduleId
+    );
+
     const createSchedule = useCreateSchedule(childId);
-    const updateSchedule = useUpdateSchedule(editingSchedule?.id || '', childId);
+    const updateSchedule = useUpdateSchedule(editingScheduleId || '', childId);
     const deleteSchedule = useDeleteSchedule(childId);
 
     const schedules = schedulesData?.schedules || [];
 
+    useEffect(() => {
+        if (updateSchedule.isSuccess) {
+            setEditingScheduleId(null);
+        }
+    }, [updateSchedule.isSuccess]);
+
+    useEffect(() => {
+        if (createSchedule.isSuccess) {
+            setShowCreateModal(false);
+        }
+    }, [createSchedule.isSuccess]);
+
     const handleCreate = async (data: any) => {
         await createSchedule.mutateAsync(data);
-        setShowCreateModal(false);
     };
 
     const handleUpdate = async (data: any) => {
-        if (editingSchedule) {
+        if (editingScheduleId) {
             await updateSchedule.mutateAsync(data);
-            setEditingSchedule(null);
         }
     };
 
     const handleDelete = async (scheduleId: string, scheduleName: string) => {
         if (window.confirm(`Czy na pewno chcesz usunąć harmonogram "${scheduleName}"?`)) {
+            if (expandedScheduleId === scheduleId) {
+                setExpandedScheduleId(null);
+            }
             await deleteSchedule.mutateAsync(scheduleId);
         }
+    };
+
+    const toggleExpand = (scheduleId: string) => {
+        setExpandedScheduleId(expandedScheduleId === scheduleId ? null : scheduleId);
+    };
+
+    const handleEdit = (scheduleId: string) => {
+        setEditingScheduleId(scheduleId);
     };
 
     if (isLoading) {
@@ -182,53 +345,142 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
                     </p>
                 </EmptyState>
             ) : (
-                <SchedulesGrid>
-                    {schedules.map((schedule) => (
-                        <ScheduleCard key={schedule.id}>
-                            <ScheduleHeader>
-                                <ScheduleName>{schedule.name}</ScheduleName>
-                                <ScheduleActions>
-                                    {schedule.active ? (
-                                        <Badge variant="success">Aktywny</Badge>
-                                    ) : (
-                                        <Badge variant="default">Nieaktywny</Badge>
+                <SchedulesList>
+                    {schedules.map((schedule) => {
+                        const isExpanded = expandedScheduleId === schedule.id;
+                        const detailsToShow = isExpanded ? scheduleDetails : null;
+
+                        return (
+                            <ScheduleCard key={schedule.id}>
+                                <ScheduleHeader>
+                                    <ScheduleMainInfo>
+                                        <ScheduleName>{schedule.name}</ScheduleName>
+                                        <ScheduleTime>
+                                            <Clock size={16} />
+                                            {schedule.pickupTime} → {schedule.dropoffTime}
+                                        </ScheduleTime>
+                                        <DaysList>
+                                            {schedule.days.map((day) => (
+                                                <Badge key={day} variant="primary">
+                                                    {dayLabels[day]}
+                                                </Badge>
+                                            ))}
+                                        </DaysList>
+                                    </ScheduleMainInfo>
+                                    <ScheduleActions>
+                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                            {schedule.active ? (
+                                                <Badge variant="success">Aktywny</Badge>
+                                            ) : (
+                                                <Badge variant="default">Nieaktywny</Badge>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                            <ExpandButton onClick={() => toggleExpand(schedule.id)}>
+                                                {isExpanded ? (
+                                                    <>
+                                                        <ChevronUp size={16} />
+                                                        Zwiń
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <ChevronDown size={16} />
+                                                        Rozwiń
+                                                    </>
+                                                )}
+                                            </ExpandButton>
+                                            <IconButton
+                                                onClick={() => handleEdit(schedule.id)}
+                                                title="Edytuj"
+                                            >
+                                                <Edit2 size={16} />
+                                            </IconButton>
+                                            <IconButton
+                                                onClick={() => handleDelete(schedule.id, schedule.name)}
+                                                title="Usuń"
+                                            >
+                                                <Trash2 size={16} />
+                                            </IconButton>
+                                        </div>
+                                    </ScheduleActions>
+                                </ScheduleHeader>
+
+                                <ScheduleDetails $isExpanded={isExpanded}>
+                                    {isExpanded && (
+                                        <>
+                                            {isLoadingDetails ? (
+                                                <LoadingDetails>
+                                                    <LoadingSpinner />
+                                                </LoadingDetails>
+                                            ) : detailsToShow ? (
+                                                <DetailsContent>
+                                                    <AddressBlock>
+                                                        <AddressHeader>
+                                                            <Home size={16} />
+                                                            Odbiór
+                                                        </AddressHeader>
+                                                        {detailsToShow.pickupAddress && (
+                                                            <>
+                                                                <AddressLabel>
+                                                                    {detailsToShow.pickupAddress.label}
+                                                                </AddressLabel>
+                                                                <AddressLine>
+                                                                    {detailsToShow.pickupAddress.street}{' '}
+                                                                    {detailsToShow.pickupAddress.houseNumber}
+                                                                    {detailsToShow.pickupAddress.apartmentNumber &&
+                                                                        `/${detailsToShow.pickupAddress.apartmentNumber}`}
+                                                                </AddressLine>
+                                                                <AddressLine>
+                                                                    {detailsToShow.pickupAddress.postalCode}{' '}
+                                                                    {detailsToShow.pickupAddress.city}
+                                                                </AddressLine>
+                                                            </>
+                                                        )}
+                                                    </AddressBlock>
+
+                                                    <AddressBlock>
+                                                        <AddressHeader>
+                                                            <School size={16} />
+                                                            Dowóz
+                                                        </AddressHeader>
+                                                        {detailsToShow.dropoffAddress && (
+                                                            <>
+                                                                <AddressLabel>
+                                                                    {detailsToShow.dropoffAddress.label}
+                                                                </AddressLabel>
+                                                                <AddressLine>
+                                                                    {detailsToShow.dropoffAddress.street}{' '}
+                                                                    {detailsToShow.dropoffAddress.houseNumber}
+                                                                    {detailsToShow.dropoffAddress.apartmentNumber &&
+                                                                        `/${detailsToShow.dropoffAddress.apartmentNumber}`}
+                                                                </AddressLine>
+                                                                <AddressLine>
+                                                                    {detailsToShow.dropoffAddress.postalCode}{' '}
+                                                                    {detailsToShow.dropoffAddress.city}
+                                                                </AddressLine>
+                                                            </>
+                                                        )}
+                                                    </AddressBlock>
+
+                                                    {detailsToShow.specialInstructions && (
+                                                        <SpecialInstructions>
+                                                            <InstructionsLabel>
+                                                                Specjalne instrukcje
+                                                            </InstructionsLabel>
+                                                            <InstructionsText>
+                                                                {detailsToShow.specialInstructions}
+                                                            </InstructionsText>
+                                                        </SpecialInstructions>
+                                                    )}
+                                                </DetailsContent>
+                                            ) : null}
+                                        </>
                                     )}
-                                    <IconButton
-                                        onClick={() => setEditingSchedule(schedule)}
-                                        title="Edytuj"
-                                    >
-                                        <Edit2 size={16} />
-                                    </IconButton>
-                                    <IconButton
-                                        onClick={() => handleDelete(schedule.id, schedule.name)}
-                                        title="Usuń"
-                                    >
-                                        <Trash2 size={16} />
-                                    </IconButton>
-                                </ScheduleActions>
-                            </ScheduleHeader>
-
-                            <ScheduleInfo>
-                                <InfoRow>
-                                    <Clock size={16} />
-                                    {schedule.pickupTime} → {schedule.dropoffTime}
-                                </InfoRow>
-                                <InfoRow>
-                                    <MapPin size={16} />
-                                    {schedule.pickupAddress.label} → {schedule.dropoffAddress.label}
-                                </InfoRow>
-                            </ScheduleInfo>
-
-                            <DaysList>
-                                {schedule.days.map((day) => (
-                                    <Badge key={day} variant="primary">
-                                        {dayLabels[day]}
-                                    </Badge>
-                                ))}
-                            </DaysList>
-                        </ScheduleCard>
-                    ))}
-                </SchedulesGrid>
+                                </ScheduleDetails>
+                            </ScheduleCard>
+                        );
+                    })}
+                </SchedulesList>
             )}
 
             <Modal
@@ -245,19 +497,21 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
             </Modal>
 
             <Modal
-                isOpen={!!editingSchedule}
-                onClose={() => setEditingSchedule(null)}
+                isOpen={!!editingScheduleId}
+                onClose={() => setEditingScheduleId(null)}
                 title="Edytuj harmonogram"
             >
-                {editingSchedule && (
+                {isLoadingEditData ? (
+                    <LoadingSpinner />
+                ) : editingScheduleData ? (
                     <ScheduleForm
                         mode="edit"
-                        initialData={editingSchedule}
+                        initialData={editingScheduleData}
                         onSubmit={handleUpdate}
-                        onCancel={() => setEditingSchedule(null)}
+                        onCancel={() => setEditingScheduleId(null)}
                         isLoading={updateSchedule.isPending}
                     />
-                )}
+                ) : null}
             </Modal>
         </>
     );
