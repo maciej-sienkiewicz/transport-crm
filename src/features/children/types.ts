@@ -124,3 +124,69 @@ export interface UpdateChildRequest {
     transportNeeds: TransportNeeds;
     notes?: string;
 }
+
+export interface CreateScheduleRequest {
+    name: string;
+    days: DayOfWeek[];
+    pickupTime: string;
+    pickupAddress: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+    dropoffTime: string;
+    dropoffAddress: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+    specialInstructions?: string;
+}
+
+export interface UpdateScheduleRequest {
+    name: string;
+    days: DayOfWeek[];
+    pickupTime: string; // Format: HH:mm
+    pickupAddress: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+    dropoffTime: string;
+    dropoffAddress: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+    specialInstructions?: string;
+    active: boolean;
+}
+
+export interface GuardianAssignment {
+    guardianId: string;
+    childId: string;
+    relationship: GuardianRelationship;
+    isPrimary: boolean;
+    canPickup: boolean;
+    canAuthorize: boolean;
+    createdAt: string;
+}
+
+export interface AssignGuardianRequest {
+    relationship: GuardianRelationship;
+    isPrimary: boolean;
+    canPickup: boolean;
+    canAuthorize: boolean;
+}
