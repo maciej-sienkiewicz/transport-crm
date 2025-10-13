@@ -1,3 +1,4 @@
+// src/app/App.tsx
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { AppProvider } from './providers/AppProvider';
@@ -5,6 +6,8 @@ import { GuardiansListPage } from '@/pages/guardians/GuardiansListPage';
 import { GuardianDetailPage } from '@/pages/guardians/GuardianDetailPage';
 import { ChildrenListPage } from '@/pages/children/ChildrenListPage';
 import { ChildDetailPage } from '@/pages/children/ChildDetailPage';
+import { VehiclesListPage } from '@/pages/vehicles/VehiclesListPage';
+import { VehicleDetailPage } from '@/pages/vehicles/VehicleDetailPage';
 import { UserInfo } from '@/widgets/UserInfo/UserInfo';
 
 const AppContainer = styled.div`
@@ -16,7 +19,9 @@ type Route =
     | { type: 'guardians-list' }
     | { type: 'guardian-detail'; id: string }
     | { type: 'children-list' }
-    | { type: 'child-detail'; id: string };
+    | { type: 'child-detail'; id: string }
+    | { type: 'vehicles-list' }
+    | { type: 'vehicle-detail'; id: string };
 
 function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
@@ -27,6 +32,11 @@ function App() {
         } else if (path.startsWith('/children/')) {
             const id = path.split('/')[2];
             return { type: 'child-detail', id };
+        } else if (path === '/vehicles') {
+            return { type: 'vehicles-list' };
+        } else if (path.startsWith('/vehicles/')) {
+            const id = path.split('/')[2];
+            return { type: 'vehicle-detail', id };
         } else if (path === '/guardians' || path === '/') {
             return { type: 'guardians-list' };
         } else if (path.startsWith('/guardians/')) {
@@ -46,6 +56,11 @@ function App() {
             } else if (path.startsWith('/children/')) {
                 const id = path.split('/')[2];
                 setCurrentRoute({ type: 'child-detail', id });
+            } else if (path === '/vehicles') {
+                setCurrentRoute({ type: 'vehicles-list' });
+            } else if (path.startsWith('/vehicles/')) {
+                const id = path.split('/')[2];
+                setCurrentRoute({ type: 'vehicle-detail', id });
             } else if (path === '/guardians' || path === '/') {
                 setCurrentRoute({ type: 'guardians-list' });
             } else if (path.startsWith('/guardians/')) {
@@ -68,6 +83,10 @@ function App() {
                 return <ChildrenListPage />;
             case 'child-detail':
                 return <ChildDetailPage id={currentRoute.id} />;
+            case 'vehicles-list':
+                return <VehiclesListPage />;
+            case 'vehicle-detail':
+                return <VehicleDetailPage id={currentRoute.id} />;
             default:
                 return <GuardiansListPage />;
         }
