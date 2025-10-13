@@ -1,0 +1,1 @@
+export { GuardianDetail } from './GuardianDetail';
