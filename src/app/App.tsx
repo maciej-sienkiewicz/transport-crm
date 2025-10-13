@@ -8,6 +8,8 @@ import { ChildrenListPage } from '@/pages/children/ChildrenListPage';
 import { ChildDetailPage } from '@/pages/children/ChildDetailPage';
 import { VehiclesListPage } from '@/pages/vehicles/VehiclesListPage';
 import { VehicleDetailPage } from '@/pages/vehicles/VehicleDetailPage';
+import { DriversListPage } from '@/pages/drivers/DriversListPage';
+import { DriverDetailPage } from '@/pages/drivers/DriverDetailPage';
 import { UserInfo } from '@/widgets/UserInfo/UserInfo';
 
 const AppContainer = styled.div`
@@ -21,7 +23,9 @@ type Route =
     | { type: 'children-list' }
     | { type: 'child-detail'; id: string }
     | { type: 'vehicles-list' }
-    | { type: 'vehicle-detail'; id: string };
+    | { type: 'vehicle-detail'; id: string }
+    | { type: 'drivers-list' }
+    | { type: 'driver-detail'; id: string };
 
 function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
@@ -37,6 +41,11 @@ function App() {
         } else if (path.startsWith('/vehicles/')) {
             const id = path.split('/')[2];
             return { type: 'vehicle-detail', id };
+        } else if (path === '/drivers') {
+            return { type: 'drivers-list' };
+        } else if (path.startsWith('/drivers/')) {
+            const id = path.split('/')[2];
+            return { type: 'driver-detail', id };
         } else if (path === '/guardians' || path === '/') {
             return { type: 'guardians-list' };
         } else if (path.startsWith('/guardians/')) {
@@ -61,6 +70,11 @@ function App() {
             } else if (path.startsWith('/vehicles/')) {
                 const id = path.split('/')[2];
                 setCurrentRoute({ type: 'vehicle-detail', id });
+            } else if (path === '/drivers') {
+                setCurrentRoute({ type: 'drivers-list' });
+            } else if (path.startsWith('/drivers/')) {
+                const id = path.split('/')[2];
+                setCurrentRoute({ type: 'driver-detail', id });
             } else if (path === '/guardians' || path === '/') {
                 setCurrentRoute({ type: 'guardians-list' });
             } else if (path.startsWith('/guardians/')) {
@@ -87,6 +101,10 @@ function App() {
                 return <VehiclesListPage />;
             case 'vehicle-detail':
                 return <VehicleDetailPage id={currentRoute.id} />;
+            case 'drivers-list':
+                return <DriversListPage />;
+            case 'driver-detail':
+                return <DriverDetailPage id={currentRoute.id} />;
             default:
                 return <GuardiansListPage />;
         }
