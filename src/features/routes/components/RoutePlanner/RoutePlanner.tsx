@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
-import { Users, Truck, User, Clock, MapPin, X, AlertTriangle } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Users, Truck, User, Clock, MapPin, X, AlertTriangle, Calendar } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAvailableChildren } from '../../hooks/useAvailableChildren';
 import { useAvailableDrivers } from '../../hooks/useAvailableDrivers';
 import { useAvailableVehicles } from '../../hooks/useAvailableVehicles';
@@ -54,19 +55,27 @@ export const RoutePlanner: React.FC = () => {
     const [draggedChild, setDraggedChild] = useState<AvailableChild | null>(null);
     const [isDragOver, setIsDragOver] = useState(false);
 
-    const { data: availableChildren, isLoading: isLoadingChildren } = useAvailableChildren(
+    const { data: availableChildren, isLoading: isLoadingChildren, error: childrenError } = useAvailableChildren(
         selectedDate,
         !!selectedDate
     );
-    const { data: driversData, isLoading: isLoadingDrivers } = useAvailableDrivers();
-    const { data: vehiclesData, isLoading: isLoadingVehicles } = useAvailableVehicles();
+    const { data: driversData, isLoading: isLoadingDrivers, error: driversError } = useAvailableDrivers();
+    const { data: vehiclesData, isLoading: isLoadingVehicles, error: vehiclesError } = useAvailableVehicles();
     const createRoute = useCreateRoute();
 
-    const selectedVehicle = vehiclesData?.content.find((v) => v.id === selectedVehicleId);
-    const selectedDriver = driversData?.content.find((d) => d.id === selectedDriverId);
+    const selectedVehicle = useMemo(
+        () => vehiclesData?.content.find((v) => v.id === selectedVehicleId),
+        [vehiclesData, selectedVehicleId]
+    );
 
-    const availableChildrenFiltered = availableChildren?.filter(
-        (child) => !routeChildren.find((rc) => rc.id === child.id)
+    const selectedDriver = useMemo(
+        () => driversData?.content.find((d) => d.id === selectedDriverId),
+        [driversData, selectedDriverId]
+    );
+
+    const availableChildrenFiltered = useMemo(
+        () => availableChildren?.filter((child) => !routeChildren.find((rc) => rc.id === child.id)),
+        [availableChildren, routeChildren]
     );
 
     const calculateCapacity = useCallback(() => {
@@ -111,6 +120,7 @@ export const RoutePlanner: React.FC = () => {
 
     const handleDragEnd = () => {
         setDraggedChild(null);
+        setIsDragOver(false);
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -118,8 +128,10 @@ export const RoutePlanner: React.FC = () => {
         setIsDragOver(true);
     };
 
-    const handleDragLeave = () => {
-        setIsDragOver(false);
+    const handleDragLeave = (e: React.DragEvent) => {
+        if (e.currentTarget === e.target) {
+            setIsDragOver(false);
+        }
     };
 
     const handleDrop = (e: React.DragEvent) => {
@@ -127,6 +139,15 @@ export const RoutePlanner: React.FC = () => {
         setIsDragOver(false);
 
         if (draggedChild && !routeChildren.find((c) => c.id === draggedChild.id)) {
+            const capacity = calculateCapacity();
+            const additionalSeats = draggedChild.transportNeeds.wheelchair ? 2 : 1;
+
+            if (selectedVehicle && capacity.used + additionalSeats > selectedVehicle.capacity.totalSeats) {
+                toast.error('Przekroczono pojemność pojazdu!');
+                setDraggedChild(null);
+                return;
+            }
+
             const newChild: RouteBuilderChild = {
                 ...draggedChild,
                 pickupOrder: routeChildren.length + 1,
@@ -134,29 +155,52 @@ export const RoutePlanner: React.FC = () => {
                 estimatedDropoffTime: draggedChild.schedule.dropoffTime,
             };
             setRouteChildren([...routeChildren, newChild]);
+            toast.success(`Dodano ${draggedChild.firstName} ${draggedChild.lastName} do trasy`);
         }
         setDraggedChild(null);
     };
 
     const handleRemoveChild = (childId: string) => {
+        const child = routeChildren.find((c) => c.id === childId);
         const updatedChildren = routeChildren
             .filter((c) => c.id !== childId)
             .map((c, index) => ({ ...c, pickupOrder: index + 1 }));
         setRouteChildren(updatedChildren);
+        if (child) {
+            toast.success(`Usunięto ${child.firstName} ${child.lastName} z trasy`);
+        }
     };
 
     const handleSaveRoute = async () => {
-        if (!routeName || !selectedVehicleId || !selectedDriverId || routeChildren.length === 0) {
+        if (!routeName.trim()) {
+            toast.error('Wprowadź nazwę trasy');
+            return;
+        }
+
+        if (!selectedVehicleId) {
+            toast.error('Wybierz pojazd');
+            return;
+        }
+
+        if (!selectedDriverId) {
+            toast.error('Wybierz kierowcę');
+            return;
+        }
+
+        if (routeChildren.length === 0) {
+            toast.error('Dodaj co najmniej jedno dziecko do trasy');
             return;
         }
 
         const capacity = calculateCapacity();
         if (capacity.overCapacity) {
+            toast.error('Przekroczono pojemność pojazdu!');
             return;
         }
 
         const warnings = validateVehicleNeeds();
         if (warnings.length > 0) {
+            toast.error(warnings[0]);
             return;
         }
 
@@ -168,40 +212,89 @@ export const RoutePlanner: React.FC = () => {
             return child.estimatedDropoffTime > latest ? child.estimatedDropoffTime : latest;
         }, routeChildren[0].estimatedDropoffTime);
 
-        await createRoute.mutateAsync({
-            routeName,
-            date: selectedDate,
-            driverId: selectedDriverId,
-            vehicleId: selectedVehicleId,
-            estimatedStartTime: earliestPickup,
-            estimatedEndTime: latestDropoff,
-            children: routeChildren.map((child) => ({
-                childId: child.id,
-                scheduleId: child.schedule.id,
-                pickupOrder: child.pickupOrder,
-                estimatedPickupTime: child.estimatedPickupTime,
-                estimatedDropoffTime: child.estimatedDropoffTime,
-            })),
-        });
+        try {
+            await createRoute.mutateAsync({
+                routeName: routeName.trim(),
+                date: selectedDate,
+                driverId: selectedDriverId,
+                vehicleId: selectedVehicleId,
+                estimatedStartTime: earliestPickup,
+                estimatedEndTime: latestDropoff,
+                children: routeChildren.map((child) => ({
+                    childId: child.id,
+                    scheduleId: child.schedule.id,
+                    pickupOrder: child.pickupOrder,
+                    estimatedPickupTime: child.estimatedPickupTime,
+                    estimatedDropoffTime: child.estimatedDropoffTime,
+                })),
+            });
 
-        setRouteName('');
-        setSelectedVehicleId('');
-        setSelectedDriverId('');
-        setRouteChildren([]);
+            setRouteName('');
+            setSelectedVehicleId('');
+            setSelectedDriverId('');
+            setRouteChildren([]);
+
+            setTimeout(() => {
+                window.location.href = '/routes';
+            }, 1500);
+        } catch (error) {
+            console.error('Błąd podczas tworzenia trasy:', error);
+        }
     };
 
     const capacity = calculateCapacity();
     const warnings = validateVehicleNeeds();
     const canSave =
-        routeName &&
+        routeName.trim() &&
         selectedVehicleId &&
         selectedDriverId &&
         routeChildren.length > 0 &&
         !capacity.overCapacity &&
         warnings.length === 0;
 
+    if (childrenError || driversError || vehiclesError) {
+        return (
+            <Card>
+                <Card.Content>
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#ef4444' }}>
+                        <AlertTriangle size={48} style={{ margin: '0 auto 1rem' }} />
+                        <p>Wystąpił błąd podczas ładowania danych.</p>
+                        <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                            Odśwież stronę lub skontaktuj się z administratorem.
+                        </p>
+                    </div>
+                </Card.Content>
+            </Card>
+        );
+    }
+
     if (isLoadingChildren || isLoadingDrivers || isLoadingVehicles) {
         return <LoadingSpinner />;
+    }
+
+    const hasNoDrivers = !driversData?.content.length;
+    const hasNoVehicles = !vehiclesData?.content.length;
+
+    if (hasNoDrivers || hasNoVehicles) {
+        return (
+            <Card>
+                <Card.Content>
+                    <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                        <AlertTriangle size={48} style={{ margin: '0 auto 1rem', color: '#f59e0b' }} />
+                        <p style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                            Nie można zaplanować trasy
+                        </p>
+                        <p>
+                            {hasNoDrivers && 'Brak dostępnych kierowców. '}
+                            {hasNoVehicles && 'Brak dostępnych pojazdów. '}
+                        </p>
+                        <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                            Dodaj {hasNoDrivers ? 'kierowców' : ''}{hasNoDrivers && hasNoVehicles ? ' i ' : ''}{hasNoVehicles ? 'pojazdy' : ''} przed zaplanowaniem trasy.
+                        </p>
+                    </div>
+                </Card.Content>
+            </Card>
+        );
     }
 
     return (
@@ -217,8 +310,12 @@ export const RoutePlanner: React.FC = () => {
                                 label="Data"
                                 type="date"
                                 value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
+                                onChange={(e) => {
+                                    setSelectedDate(e.target.value);
+                                    setRouteChildren([]);
+                                }}
                                 required
+                                min={new Date().toISOString().split('T')[0]}
                             />
                             <Input
                                 label="Nazwa trasy"
@@ -226,15 +323,19 @@ export const RoutePlanner: React.FC = () => {
                                 onChange={(e) => setRouteName(e.target.value)}
                                 placeholder="np. Trasa Mokotów A"
                                 required
+                                maxLength={255}
                             />
                             <Select
                                 label="Pojazd"
                                 value={selectedVehicleId}
-                                onChange={(e) => setSelectedVehicleId(e.target.value)}
+                                onChange={(e) => {
+                                    setSelectedVehicleId(e.target.value);
+                                    setRouteChildren([]);
+                                }}
                                 options={
                                     vehiclesData?.content.map((v) => ({
                                         value: v.id,
-                                        label: `${v.registrationNumber} - ${v.make} ${v.model} (${v.capacity.totalSeats} miejsc)`,
+                                        label: `${v.registrationNumber} - ${v.make} ${v.model} (${v.capacity.totalSeats} miejsc, ${v.capacity.wheelchairSpaces} na wózki)`,
                                     })) || []
                                 }
                                 required
@@ -257,11 +358,18 @@ export const RoutePlanner: React.FC = () => {
 
                 <Card>
                     <Card.Header>
-                        <Card.Title>Dostępne dzieci ({availableChildrenFiltered?.length || 0})</Card.Title>
+                        <Card.Title>
+                            Dostępne dzieci ({availableChildrenFiltered?.length || 0})
+                        </Card.Title>
                     </Card.Header>
                     <Card.Content>
                         <SectionTitle>
-                            Dzieci z harmonogramem na {new Date(selectedDate).toLocaleDateString('pl-PL')}
+                            <Calendar size={14} style={{ display: 'inline', marginRight: '0.25rem' }} />
+                            Dzieci z harmonogramem na {new Date(selectedDate).toLocaleDateString('pl-PL', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                        })}
                         </SectionTitle>
                         {!availableChildrenFiltered?.length ? (
                             <div
@@ -271,7 +379,13 @@ export const RoutePlanner: React.FC = () => {
                                     color: '#64748b',
                                 }}
                             >
-                                Brak dzieci z harmonogramem na wybrany dzień
+                                <Users size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                                <p style={{ fontWeight: 500 }}>Brak dzieci z harmonogramem</p>
+                                <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                                    {routeChildren.length > 0
+                                        ? 'Wszystkie dostępne dzieci zostały już dodane do trasy'
+                                        : 'Wybierz inną datę lub dodaj harmonogramy dla dzieci'}
+                                </p>
                             </div>
                         ) : (
                             <ChildrenList>
@@ -282,6 +396,7 @@ export const RoutePlanner: React.FC = () => {
                                         onDragStart={() => handleDragStart(child)}
                                         onDragEnd={handleDragEnd}
                                         $isDragging={draggedChild?.id === child.id}
+                                        title="Przeciągnij do trasy"
                                     >
                                         <ChildName>
                                             {child.firstName} {child.lastName}, {child.age} lat
@@ -297,13 +412,19 @@ export const RoutePlanner: React.FC = () => {
                                         </ChildInfo>
                                         <NeedsIndicators>
                                             {child.transportNeeds.wheelchair && (
-                                                <NeedBadge $variant="wheelchair">Wózek</NeedBadge>
+                                                <NeedBadge $variant="wheelchair" title="Wymaga wózka inwalidzkiego (zajmuje 2 miejsca)">
+                                                    Wózek (2 miejsca)
+                                                </NeedBadge>
                                             )}
                                             {child.transportNeeds.specialSeat && (
-                                                <NeedBadge $variant="seat">Fotelik</NeedBadge>
+                                                <NeedBadge $variant="seat" title="Wymaga specjalnego fotelika">
+                                                    Fotelik
+                                                </NeedBadge>
                                             )}
                                             {child.transportNeeds.safetyBelt && (
-                                                <NeedBadge $variant="belt">Pas</NeedBadge>
+                                                <NeedBadge $variant="belt" title="Wymaga pasa bezpieczeństwa">
+                                                    Pas
+                                                </NeedBadge>
                                             )}
                                         </NeedsIndicators>
                                     </ChildCard>
@@ -320,7 +441,11 @@ export const RoutePlanner: React.FC = () => {
                         <RouteInfo>
                             <RouteTitle>
                                 {routeName || 'Nowa trasa'}{' '}
-                                {selectedDate && `- ${new Date(selectedDate).toLocaleDateString('pl-PL')}`}
+                                {selectedDate && `- ${new Date(selectedDate).toLocaleDateString('pl-PL', {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'long',
+                                })}`}
                             </RouteTitle>
                             <RouteMetadata>
                                 {selectedDriver && (
@@ -337,7 +462,7 @@ export const RoutePlanner: React.FC = () => {
                                 )}
                                 <MetadataItem>
                                     <Users size={16} />
-                                    {routeChildren.length} dzieci
+                                    {routeChildren.length} {routeChildren.length === 1 ? 'dziecko' : 'dzieci'}
                                 </MetadataItem>
                             </RouteMetadata>
                         </RouteInfo>
@@ -345,10 +470,12 @@ export const RoutePlanner: React.FC = () => {
                             <CapacityIndicator>
                                 <CapacityText $warning={capacity.overCapacity}>
                                     {capacity.used} / {capacity.total} miejsc
+                                    {capacity.overCapacity && ' ⚠'}
                                 </CapacityText>
                                 <CapacityBar
                                     $percentage={capacity.percentage}
                                     $overCapacity={capacity.overCapacity}
+                                    title={`Wykorzystano ${capacity.used} z ${capacity.total} miejsc (${Math.round(capacity.percentage)}%)`}
                                 />
                             </CapacityIndicator>
                         )}
@@ -366,12 +493,19 @@ export const RoutePlanner: React.FC = () => {
                                 <EmptyDropZoneIcon>
                                     <Users size={32} />
                                 </EmptyDropZoneIcon>
-                                <div>Przeciągnij dzieci tutaj, aby dodać do trasy</div>
+                                <div style={{ fontSize: '1rem', fontWeight: 500, marginBottom: '0.25rem' }}>
+                                    Przeciągnij dzieci tutaj
+                                </div>
+                                <div style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
+                                    Dodaj dzieci z listy po lewej stronie, aby utworzyć trasę
+                                </div>
                             </EmptyDropZone>
                         ) : (
                             routeChildren.map((child) => (
                                 <RouteChildCard key={child.id}>
-                                    <OrderBadge>{child.pickupOrder}</OrderBadge>
+                                    <OrderBadge title={`Kolejność odbioru: ${child.pickupOrder}`}>
+                                        {child.pickupOrder}
+                                    </OrderBadge>
                                     <RouteChildInfo>
                                         <RouteChildName>
                                             {child.firstName} {child.lastName}
@@ -388,14 +522,19 @@ export const RoutePlanner: React.FC = () => {
                                                 {child.schedule.dropoffAddress.label}
                                             </div>
                                             {child.transportNeeds.wheelchair && (
-                                                <div style={{ color: '#d97706', fontWeight: 500 }}>
-                                                    ⚠ Wymaga wózka inwalidzkiego
+                                                <div style={{ color: '#d97706', fontWeight: 500, fontSize: '0.8125rem' }}>
+                                                    <AlertTriangle size={12} style={{ display: 'inline', marginRight: 4 }} />
+                                                    Wymaga wózka inwalidzkiego (zajmuje 2 miejsca)
                                                 </div>
                                             )}
                                         </RouteChildDetails>
                                     </RouteChildInfo>
                                     <RouteChildActions>
-                                        <RemoveButton onClick={() => handleRemoveChild(child.id)}>
+                                        <RemoveButton
+                                            onClick={() => handleRemoveChild(child.id)}
+                                            title="Usuń z trasy"
+                                            aria-label={`Usuń ${child.firstName} ${child.lastName} z trasy`}
+                                        >
                                             <X size={16} />
                                         </RemoveButton>
                                     </RouteChildActions>
@@ -422,7 +561,11 @@ export const RoutePlanner: React.FC = () => {
                         </ValidationWarning>
                     )}
 
-                    <SaveButton onClick={handleSaveRoute} disabled={!canSave || createRoute.isPending}>
+                    <SaveButton
+                        onClick={handleSaveRoute}
+                        disabled={!canSave || createRoute.isPending}
+                        title={!canSave ? 'Uzupełnij wszystkie wymagane pola' : 'Zapisz trasę'}
+                    >
                         {createRoute.isPending ? 'Zapisywanie...' : 'Zapisz trasę'}
                     </SaveButton>
                 </RouteBuilderContainer>

@@ -10,6 +10,9 @@ import { VehiclesListPage } from '@/pages/vehicles/VehiclesListPage';
 import { VehicleDetailPage } from '@/pages/vehicles/VehicleDetailPage';
 import { DriversListPage } from '@/pages/drivers/DriversListPage';
 import { DriverDetailPage } from '@/pages/drivers/DriverDetailPage';
+import { RoutesListPage } from '@/pages/routes/RoutesListPage';
+import { RouteDetailPage } from '@/pages/routes/RouteDetailPage';
+import { CreateRoutePage } from '@/pages/routes/CreateRoutePage';
 import { UserInfo } from '@/widgets/UserInfo/UserInfo';
 
 const AppContainer = styled.div`
@@ -25,13 +28,23 @@ type Route =
     | { type: 'vehicles-list' }
     | { type: 'vehicle-detail'; id: string }
     | { type: 'drivers-list' }
-    | { type: 'driver-detail'; id: string };
+    | { type: 'driver-detail'; id: string }
+    | { type: 'routes-list' }
+    | { type: 'route-detail'; id: string }
+    | { type: 'route-create' };
 
 function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
         const path = window.location.pathname;
 
-        if (path === '/children') {
+        if (path === '/routes/create') {
+            return { type: 'route-create' };
+        } else if (path === '/routes') {
+            return { type: 'routes-list' };
+        } else if (path.startsWith('/routes/')) {
+            const id = path.split('/')[2];
+            return { type: 'route-detail', id };
+        } else if (path === '/children') {
             return { type: 'children-list' };
         } else if (path.startsWith('/children/')) {
             const id = path.split('/')[2];
@@ -60,7 +73,14 @@ function App() {
         const handlePopState = () => {
             const path = window.location.pathname;
 
-            if (path === '/children') {
+            if (path === '/routes/create') {
+                setCurrentRoute({ type: 'route-create' });
+            } else if (path === '/routes') {
+                setCurrentRoute({ type: 'routes-list' });
+            } else if (path.startsWith('/routes/')) {
+                const id = path.split('/')[2];
+                setCurrentRoute({ type: 'route-detail', id });
+            } else if (path === '/children') {
                 setCurrentRoute({ type: 'children-list' });
             } else if (path.startsWith('/children/')) {
                 const id = path.split('/')[2];
@@ -89,6 +109,12 @@ function App() {
 
     const renderPage = () => {
         switch (currentRoute.type) {
+            case 'routes-list':
+                return <RoutesListPage />;
+            case 'route-detail':
+                return <RouteDetailPage id={currentRoute.id} />;
+            case 'route-create':
+                return <CreateRoutePage />;
             case 'guardians-list':
                 return <GuardiansListPage />;
             case 'guardian-detail':
