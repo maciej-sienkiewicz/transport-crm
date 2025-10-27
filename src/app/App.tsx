@@ -14,10 +14,28 @@ import { RoutesListPage } from '@/pages/routes/RoutesListPage';
 import { RouteDetailPage } from '@/pages/routes/RouteDetailPage';
 import { CreateRoutePage } from '@/pages/routes/CreateRoutePage';
 import { UserInfo } from '@/widgets/UserInfo/UserInfo';
+import { Sidebar } from '@/widgets/Sidebar';
 
 const AppContainer = styled.div`
     min-height: 100vh;
     background: ${({ theme }) => theme.colors.slate[50]};
+    display: flex;
+`;
+
+const MainContent = styled.div<{ $isCollapsed: boolean }>`
+    flex: 1;
+    margin-left: ${({ $isCollapsed }) => ($isCollapsed ? '80px' : '280px')};
+    transition: margin-left ${({ theme }) => theme.transitions.normal};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
+        margin-left: 0;
+    }
+`;
+
+const ContentWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 `;
 
 type Route =
@@ -69,6 +87,8 @@ function App() {
         return { type: 'guardians-list' };
     });
 
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
     React.useEffect(() => {
         const handlePopState = () => {
             const path = window.location.pathname;
@@ -107,6 +127,15 @@ function App() {
         return () => window.removeEventListener('popstate', handlePopState);
     }, []);
 
+    React.useEffect(() => {
+        const handleSidebarCollapse = ((e: CustomEvent) => {
+            setIsSidebarCollapsed(e.detail.isCollapsed);
+        }) as EventListener;
+
+        window.addEventListener('sidebar-collapse', handleSidebarCollapse);
+        return () => window.removeEventListener('sidebar-collapse', handleSidebarCollapse);
+    }, []);
+
     const renderPage = () => {
         switch (currentRoute.type) {
             case 'routes-list':
@@ -139,8 +168,13 @@ function App() {
     return (
         <AppProvider>
             <AppContainer>
-                <UserInfo />
-                {renderPage()}
+                <Sidebar />
+                <MainContent $isCollapsed={isSidebarCollapsed}>
+                    <ContentWrapper>
+                        <UserInfo />
+                        {renderPage()}
+                    </ContentWrapper>
+                </MainContent>
             </AppContainer>
         </AppProvider>
     );
