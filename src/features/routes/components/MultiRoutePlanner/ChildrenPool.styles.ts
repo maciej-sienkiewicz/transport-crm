@@ -2,8 +2,8 @@ import styled from 'styled-components';
 
 export const PoolContainer = styled.div`
     background: white;
-    border-radius: ${({ theme }) => theme.borderRadius['2xl']};
-    box-shadow: ${({ theme }) => theme.shadows.md};
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    box-shadow: ${({ theme }) => theme.shadows.sm};
     border: 1px solid ${({ theme }) => theme.colors.slate[200]};
     overflow: hidden;
 `;
@@ -12,7 +12,7 @@ export const PoolHeader = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: ${({ theme }) => theme.spacing.lg};
+    padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
     background: ${({ theme }) => theme.gradients.cardHeader};
     border-bottom: 1px solid ${({ theme }) => theme.colors.slate[200]};
 `;
@@ -20,8 +20,8 @@ export const PoolHeader = styled.div`
 export const PoolTitle = styled.h3`
     display: flex;
     align-items: center;
-    gap: ${({ theme }) => theme.spacing.sm};
-    font-size: 0.875rem;
+    gap: ${({ theme }) => theme.spacing.xs};
+    font-size: 0.8125rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[700]};
     text-transform: uppercase;
@@ -32,27 +32,27 @@ export const PoolCount = styled.div<{ $isEmpty?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
+    min-width: 28px;
+    height: 28px;
     padding: 0 ${({ theme }) => theme.spacing.sm};
     background: ${({ $isEmpty, theme }) =>
     $isEmpty ? theme.colors.slate[200] : theme.gradients.primaryButton};
     color: ${({ $isEmpty, theme }) =>
     $isEmpty ? theme.colors.slate[600] : 'white'};
     border-radius: ${({ theme }) => theme.borderRadius.full};
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-weight: 700;
 `;
 
 export const PoolContent = styled.div`
-    max-height: 280px;
+    max-height: 200px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: ${({ theme }) => theme.spacing.lg};
+    padding: ${({ theme }) => theme.spacing.md};
 
     /* Custom scrollbar */
     &::-webkit-scrollbar {
-        height: 8px;
+        height: 6px;
     }
 
     &::-webkit-scrollbar-track {
@@ -72,7 +72,7 @@ export const PoolContent = styled.div`
 
 export const ChildrenGrid = styled.div`
     display: flex;
-    gap: ${({ theme }) => theme.spacing.md};
+    gap: ${({ theme }) => theme.spacing.sm};
     min-width: max-content;
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
@@ -82,10 +82,10 @@ export const ChildrenGrid = styled.div`
 `;
 
 export const ChildCard = styled.div`
-    flex: 0 0 260px;
+    flex: 0 0 220px;
     background: ${({ theme }) => theme.colors.slate[50]};
     border: 2px solid ${({ theme }) => theme.colors.slate[200]};
-    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    border-radius: ${({ theme }) => theme.borderRadius.lg};
     cursor: grab;
     transition: all ${({ theme }) => theme.transitions.normal};
 
@@ -94,15 +94,15 @@ export const ChildCard = styled.div`
     }
 
     &:hover {
-        transform: translateY(-4px);
-        box-shadow: ${({ theme }) => theme.shadows.lg};
+        transform: translateY(-2px);
+        box-shadow: ${({ theme }) => theme.shadows.md};
         border-color: ${({ theme }) => theme.colors.primary[300]};
         background: white;
     }
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
-        flex: 1 1 calc(50% - ${({ theme }) => theme.spacing.md});
-        min-width: 240px;
+        flex: 1 1 calc(50% - ${({ theme }) => theme.spacing.sm});
+        min-width: 200px;
     }
 
     @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
@@ -111,27 +111,27 @@ export const ChildCard = styled.div`
 `;
 
 export const ChildCardContent = styled.div`
-    padding: ${({ theme }) => theme.spacing.md};
+    padding: ${({ theme }) => theme.spacing.sm};
     display: flex;
     flex-direction: column;
-    gap: ${({ theme }) => theme.spacing.sm};
+    gap: ${({ theme }) => theme.spacing.xs};
 `;
 
 export const ChildName = styled.div`
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[900]};
 `;
 
 export const ChildAge = styled.div`
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     color: ${({ theme }) => theme.colors.slate[600]};
 `;
 
 export const ChildSchedule = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 3px;
     margin-top: ${({ theme }) => theme.spacing.xs};
 `;
 
@@ -139,22 +139,22 @@ export const ScheduleItem = styled.div`
     display: flex;
     align-items: center;
     gap: ${({ theme }) => theme.spacing.xs};
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     color: ${({ theme }) => theme.colors.slate[600]};
 `;
 
 export const NeedsRow = styled.div`
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 3px;
     margin-top: ${({ theme }) => theme.spacing.xs};
 `;
 
 export const NeedBadge = styled.span<{ $variant: 'wheelchair' | 'seat' | 'belt' }>`
     display: inline-flex;
     align-items: center;
-    padding: 2px 6px;
-    font-size: 0.6875rem;
+    padding: 2px 4px;
+    font-size: 0.625rem;
     font-weight: 600;
     border-radius: ${({ theme }) => theme.borderRadius.sm};
     background: ${({ $variant, theme }) => {
@@ -184,15 +184,15 @@ export const EmptyPool = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: ${({ theme }) => theme.spacing.xl};
+    padding: ${({ theme }) => theme.spacing.lg};
     text-align: center;
     color: ${({ theme }) => theme.colors.slate[400]};
 `;
 
 export const EmptyIcon = styled.div`
-    width: 64px;
-    height: 64px;
-    margin-bottom: ${({ theme }) => theme.spacing.md};
+    width: 48px;
+    height: 48px;
+    margin-bottom: ${({ theme }) => theme.spacing.sm};
     background: ${({ theme }) => theme.colors.slate[100]};
     border-radius: ${({ theme }) => theme.borderRadius.full};
     display: flex;
@@ -202,6 +202,6 @@ export const EmptyIcon = styled.div`
 `;
 
 export const EmptyText = styled.p`
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     color: ${({ theme }) => theme.colors.slate[500]};
 `;

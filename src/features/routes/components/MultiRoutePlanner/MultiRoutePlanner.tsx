@@ -306,8 +306,8 @@ export const MultiRoutePlanner: React.FC = () => {
                 <GlobalControls>
                     <DateSection>
                         <DateLabel>
-                            <Calendar size={18} />
-                            Planowanie tras na dzień
+                            <Calendar size={16} />
+                            Data
                         </DateLabel>
                         <Input
                             type="date"
@@ -340,7 +340,7 @@ export const MultiRoutePlanner: React.FC = () => {
                             </StatItem>
                             <StatItem $warning={stats.unassigned > 0}>
                                 <StatValue>{stats.unassigned}</StatValue>
-                                <StatLabel>Do przypisania</StatLabel>
+                                <StatLabel>Wolnych</StatLabel>
                             </StatItem>
                         </StatsBar>
                     </ActionsSection>
@@ -359,13 +359,13 @@ export const MultiRoutePlanner: React.FC = () => {
                 {routes.length === 0 ? (
                     <EmptyState>
                         <EmptyIcon>
-                            <Plus size={48} />
+                            <Plus size={40} />
                         </EmptyIcon>
                         <EmptyText>
                             Zacznij od dodania pierwszej trasy
                         </EmptyText>
-                        <Button size="lg" onClick={handleAddRoute}>
-                            <Plus size={20} />
+                        <Button size="md" onClick={handleAddRoute}>
+                            <Plus size={18} />
                             Dodaj pierwszą trasę
                         </Button>
                     </EmptyState>
@@ -393,36 +393,39 @@ export const MultiRoutePlanner: React.FC = () => {
 
                             <AddRouteCard>
                                 <AddRouteButton onClick={handleAddRoute}>
-                                    <Plus size={32} />
+                                    <Plus size={28} />
                                     <AddRouteText>Dodaj kolejną trasę</AddRouteText>
                                 </AddRouteButton>
                             </AddRouteCard>
                         </RoutesGrid>
-
-                        <BulkActions>
-                            <Button
-                                variant="secondary"
-                                onClick={() => {
-                                    if (window.confirm('Czy na pewno chcesz anulować? Wszystkie niezapisane zmiany zostaną utracone.')) {
-                                        window.location.href = '/routes';
-                                    }
-                                }}
-                            >
-                                Anuluj
-                            </Button>
-                            <SaveAllButton
-                                size="lg"
-                                onClick={handleSaveAll}
-                                disabled={isSaving || routes.length === 0}
-                                isLoading={isSaving}
-                            >
-                                <Save size={20} />
-                                {isSaving ? 'Zapisywanie...' : `Zapisz wszystkie trasy (${routes.length})`}
-                            </SaveAllButton>
-                        </BulkActions>
                     </>
                 )}
             </RoutesSection>
+
+            {routes.length > 0 && (
+                <BulkActions>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                            if (window.confirm('Czy na pewno chcesz anulować? Wszystkie niezapisane zmiany zostaną utracone.')) {
+                                window.location.href = '/routes';
+                            }
+                        }}
+                    >
+                        Anuluj
+                    </Button>
+                    <SaveAllButton
+                        size="sm"
+                        onClick={handleSaveAll}
+                        disabled={isSaving || routes.length === 0}
+                        isLoading={isSaving}
+                    >
+                        <Save size={16} />
+                        {isSaving ? 'Zapisywanie...' : `Zapisz (${routes.length})`}
+                    </SaveAllButton>
+                </BulkActions>
+            )}
         </PlannerContainer>
     );
 };

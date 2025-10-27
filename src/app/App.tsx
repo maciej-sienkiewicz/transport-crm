@@ -20,12 +20,17 @@ const AppContainer = styled.div`
     min-height: 100vh;
     background: ${({ theme }) => theme.colors.slate[50]};
     display: flex;
+    overflow: hidden;
 `;
 
 const MainContent = styled.div<{ $isCollapsed: boolean }>`
     flex: 1;
     margin-left: ${({ $isCollapsed }) => ($isCollapsed ? '80px' : '280px')};
     transition: margin-left ${({ theme }) => theme.transitions.normal};
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow: hidden;
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
         margin-left: 0;
@@ -35,7 +40,14 @@ const MainContent = styled.div<{ $isCollapsed: boolean }>`
 const ContentWrapper = styled.div`
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    flex: 1;
+    overflow: hidden;
+`;
+
+const PageContent = styled.div`
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
 `;
 
 type Route =
@@ -172,7 +184,9 @@ function App() {
                 <MainContent $isCollapsed={isSidebarCollapsed}>
                     <ContentWrapper>
                         <UserInfo />
-                        {renderPage()}
+                        <PageContent>
+                            {renderPage()}
+                        </PageContent>
                     </ContentWrapper>
                 </MainContent>
             </AppContainer>

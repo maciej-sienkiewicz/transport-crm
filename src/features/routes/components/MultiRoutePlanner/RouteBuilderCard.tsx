@@ -184,7 +184,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                         }}
                         title="Usuń trasę"
                     >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                     </RemoveRouteButton>
                 </RouteCardHeaderRight>
             </RouteCardHeader>
@@ -227,25 +227,25 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                         <MetadataBar>
                             {selectedDriver && (
                                 <MetadataItem>
-                                    <User size={14} />
+                                    <User size={13} />
                                     {selectedDriver.firstName} {selectedDriver.lastName}
                                 </MetadataItem>
                             )}
                             {selectedVehicle && (
                                 <MetadataItem>
-                                    <Truck size={14} />
+                                    <Truck size={13} />
                                     {selectedVehicle.registrationNumber}
                                 </MetadataItem>
                             )}
                             <MetadataItem>
-                                <Users size={14} />
+                                <Users size={13} />
                                 {route.children.length} {route.children.length === 1 ? 'dziecko' : 'dzieci'}
                             </MetadataItem>
                         </MetadataBar>
 
                         <CapacitySection>
                             <CapacityLabel $warning={capacity.overCapacity}>
-                                Wykorzystanie miejsc: {capacity.used} / {capacity.total}
+                                Miejsca: {capacity.used} / {capacity.total}
                                 {capacity.overCapacity && ' ⚠️'}
                             </CapacityLabel>
                             <CapacityBar>
@@ -261,7 +261,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
 
                 <ChildrenSection>
                     <SectionTitle>
-                        Dzieci na trasie ({route.children.length})
+                        Dzieci ({route.children.length})
                     </SectionTitle>
                     <DropZone
                         onDragOver={handleDragOver}
@@ -272,7 +272,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                     >
                         {route.children.length === 0 ? (
                             <EmptyDropZone>
-                                <Users size={32} />
+                                <Users size={28} />
                                 <div>Przeciągnij dzieci tutaj</div>
                             </EmptyDropZone>
                         ) : (
@@ -290,16 +290,16 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                         </ChildName>
                                         <ChildDetails>
                                             <div>
-                                                <Clock size={12} style={{ display: 'inline', marginRight: 4 }} />
+                                                <Clock size={11} style={{ display: 'inline', marginRight: 4 }} />
                                                 {child.schedule.pickupTime} - {child.schedule.dropoffTime}
                                             </div>
                                             <div>
-                                                <MapPin size={12} style={{ display: 'inline', marginRight: 4 }} />
+                                                <MapPin size={11} style={{ display: 'inline', marginRight: 4 }} />
                                                 {child.schedule.pickupAddress.label} → {child.schedule.dropoffAddress.label}
                                             </div>
                                             {(child.transportNeeds.wheelchair ||
                                                 child.transportNeeds.specialSeat) && (
-                                                <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                                                <div style={{ display: 'flex', gap: '3px', marginTop: '3px' }}>
                                                     {child.transportNeeds.wheelchair && (
                                                         <NeedBadge $variant="wheelchair">
                                                             Wózek (2 miejsca)
@@ -320,7 +320,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                             }}
                                             title="Usuń z trasy"
                                         >
-                                            <X size={16} />
+                                            <X size={14} />
                                         </RemoveChildButton>
                                     </ChildActions>
                                 </RouteChildCard>
@@ -333,7 +333,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                     <ValidationWarnings>
                         {warnings.map((warning, idx) => (
                             <WarningItem key={idx}>
-                                <AlertTriangle size={16} />
+                                <AlertTriangle size={14} />
                                 {warning}
                             </WarningItem>
                         ))}

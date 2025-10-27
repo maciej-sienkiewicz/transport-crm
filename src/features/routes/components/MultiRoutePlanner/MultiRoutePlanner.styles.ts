@@ -4,29 +4,29 @@ import { Button } from '@/shared/ui/Button';
 export const PlannerContainer = styled.div`
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 120px);
-    gap: ${({ theme }) => theme.spacing.lg};
+    gap: ${({ theme }) => theme.spacing.md};
+    padding-bottom: 80px;
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
-        height: auto;
+        padding-bottom: ${({ theme }) => theme.spacing.xl};
     }
 `;
 
 export const TopSection = styled.div`
     display: flex;
     flex-direction: column;
-    gap: ${({ theme }) => theme.spacing.lg};
+    gap: ${({ theme }) => theme.spacing.md};
 `;
 
 export const GlobalControls = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: ${({ theme }) => theme.spacing.xl};
-    padding: ${({ theme }) => theme.spacing.lg};
+    gap: ${({ theme }) => theme.spacing.lg};
+    padding: ${({ theme }) => theme.spacing.md};
     background: white;
-    border-radius: ${({ theme }) => theme.borderRadius['2xl']};
-    box-shadow: ${({ theme }) => theme.shadows.md};
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    box-shadow: ${({ theme }) => theme.shadows.sm};
     border: 1px solid ${({ theme }) => theme.colors.slate[200]};
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
@@ -37,15 +37,15 @@ export const GlobalControls = styled.div`
 export const DateSection = styled.div`
     display: flex;
     flex-direction: column;
-    gap: ${({ theme }) => theme.spacing.sm};
+    gap: ${({ theme }) => theme.spacing.xs};
     flex: 1;
 `;
 
 export const DateLabel = styled.div`
     display: flex;
     align-items: center;
-    gap: ${({ theme }) => theme.spacing.sm};
-    font-size: 0.875rem;
+    gap: ${({ theme }) => theme.spacing.xs};
+    font-size: 0.8125rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[700]};
     text-transform: uppercase;
@@ -53,7 +53,7 @@ export const DateLabel = styled.div`
 `;
 
 export const DateInfo = styled.div`
-    font-size: 1.125rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[900]};
     margin-top: ${({ theme }) => theme.spacing.xs};
@@ -67,10 +67,10 @@ export const ActionsSection = styled.div`
 
 export const StatsBar = styled.div`
     display: flex;
-    gap: ${({ theme }) => theme.spacing.xl};
-    padding: ${({ theme }) => theme.spacing.md};
+    gap: ${({ theme }) => theme.spacing.lg};
+    padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
     background: ${({ theme }) => theme.gradients.cardHeader};
-    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    border-radius: ${({ theme }) => theme.borderRadius.lg};
     border: 1px solid ${({ theme }) => theme.colors.slate[200]};
 `;
 
@@ -78,25 +78,25 @@ export const StatItem = styled.div<{ $warning?: boolean }>`
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: ${({ theme }) => theme.spacing.xs};
-    min-width: 80px;
+    gap: 2px;
+    min-width: 60px;
 
     ${({ $warning, theme }) =>
-    $warning &&
-    `
+            $warning &&
+            `
         color: ${theme.colors.warning[600]};
     `}
 `;
 
 export const StatValue = styled.div`
-    font-size: 1.75rem;
+    font-size: 1.375rem;
     font-weight: 700;
     color: ${({ theme }) => theme.colors.slate[900]};
     line-height: 1;
 `;
 
 export const StatLabel = styled.div`
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
     font-weight: 500;
     color: ${({ theme }) => theme.colors.slate[600]};
     text-transform: uppercase;
@@ -109,22 +109,17 @@ export const ChildrenPoolSection = styled.div`
 
 export const RoutesSection = styled.div`
     flex: 1;
-    overflow-y: auto;
-    padding: ${({ theme }) => theme.spacing.md} 0;
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
-        overflow-y: visible;
-    }
+    padding: ${({ theme }) => theme.spacing.sm} 0;
 `;
 
 export const RoutesGrid = styled.div`
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-    gap: ${({ theme }) => theme.spacing.xl};
-    margin-bottom: ${({ theme }) => theme.spacing.xl};
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: ${({ theme }) => theme.spacing.lg};
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
 
     @media (max-width: ${({ theme }) => theme.breakpoints.xl}) {
-        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
     }
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
@@ -133,13 +128,13 @@ export const RoutesGrid = styled.div`
 `;
 
 export const AddRouteCard = styled.div`
-    min-height: 300px;
+    min-height: 240px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: white;
     border: 2px dashed ${({ theme }) => theme.colors.slate[300]};
-    border-radius: ${({ theme }) => theme.borderRadius['2xl']};
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
     transition: all ${({ theme }) => theme.transitions.normal};
 
     &:hover {
@@ -152,8 +147,8 @@ export const AddRouteButton = styled.button`
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: ${({ theme }) => theme.spacing.md};
-    padding: ${({ theme }) => theme.spacing.xl};
+    gap: ${({ theme }) => theme.spacing.sm};
+    padding: ${({ theme }) => theme.spacing.lg};
     background: transparent;
     border: none;
     color: ${({ theme }) => theme.colors.slate[400]};
@@ -167,7 +162,7 @@ export const AddRouteButton = styled.button`
 `;
 
 export const AddRouteText = styled.span`
-    font-size: 1rem;
+    font-size: 0.875rem;
     font-weight: 600;
 `;
 
@@ -176,15 +171,15 @@ export const EmptyState = styled.div`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 400px;
+    min-height: 320px;
     text-align: center;
-    padding: ${({ theme }) => theme.spacing['2xl']};
+    padding: ${({ theme }) => theme.spacing.xl};
 `;
 
 export const EmptyIcon = styled.div`
-    width: 100px;
-    height: 100px;
-    margin-bottom: ${({ theme }) => theme.spacing.xl};
+    width: 80px;
+    height: 80px;
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
     background: ${({ theme }) => theme.gradients.cardHeader};
     border-radius: ${({ theme }) => theme.borderRadius.full};
     display: flex;
@@ -194,31 +189,32 @@ export const EmptyIcon = styled.div`
 `;
 
 export const EmptyText = styled.p`
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[700]};
-    margin-bottom: ${({ theme }) => theme.spacing.xl};
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
 export const BulkActions = styled.div`
-    position: sticky;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    position: fixed;
+    bottom: ${({ theme }) => theme.spacing.md};
+    right: ${({ theme }) => theme.spacing.lg};
     display: flex;
-    justify-content: flex-end;
     align-items: center;
-    gap: ${({ theme }) => theme.spacing.md};
-    padding: ${({ theme }) => theme.spacing.lg};
+    gap: ${({ theme }) => theme.spacing.sm};
+    padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
     background: white;
-    border-top: 1px solid ${({ theme }) => theme.colors.slate[200]};
-    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-    border-radius: ${({ theme }) => theme.borderRadius['2xl']} ${({ theme }) => theme.borderRadius['2xl']} 0 0;
+    border: 1px solid ${({ theme }) => theme.colors.slate[200]};
+    box-shadow: ${({ theme }) => theme.shadows.lg};
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
     z-index: 10;
 
     @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+        left: ${({ theme }) => theme.spacing.md};
+        right: ${({ theme }) => theme.spacing.md};
+        bottom: ${({ theme }) => theme.spacing.md};
         flex-direction: column;
-        
+
         button {
             width: 100%;
         }
@@ -226,7 +222,9 @@ export const BulkActions = styled.div`
 `;
 
 export const SaveAllButton = styled(Button)`
-    min-width: 250px;
+    min-width: 180px;
+    font-size: 0.875rem;
+    padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
 
     @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
         min-width: 100%;

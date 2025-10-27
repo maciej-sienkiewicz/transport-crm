@@ -37,7 +37,7 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
             <PoolContainer>
                 <PoolHeader>
                     <PoolTitle>
-                        <Users size={18} />
+                        <Users size={16} />
                         Dostępne dzieci
                     </PoolTitle>
                     <PoolCount $isEmpty>0</PoolCount>
@@ -45,7 +45,7 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
                 <PoolContent>
                     <EmptyPool>
                         <EmptyIcon>
-                            <Users size={32} />
+                            <Users size={24} />
                         </EmptyIcon>
                         <EmptyText>
                             Wszystkie dzieci zostały już przypisane do tras
@@ -60,7 +60,7 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
         <PoolContainer>
             <PoolHeader>
                 <PoolTitle>
-                    <Users size={18} />
+                    <Users size={16} />
                     Dostępne dzieci
                 </PoolTitle>
                 <PoolCount>{children.length}</PoolCount>
@@ -82,11 +82,11 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
                                 <ChildAge>{child.age} lat</ChildAge>
                                 <ChildSchedule>
                                     <ScheduleItem>
-                                        <Clock size={12} />
+                                        <Clock size={11} />
                                         {child.schedule.pickupTime} - {child.schedule.dropoffTime}
                                     </ScheduleItem>
                                     <ScheduleItem>
-                                        <MapPin size={12} />
+                                        <MapPin size={11} />
                                         {child.schedule.pickupAddress.label}
                                     </ScheduleItem>
                                 </ChildSchedule>
