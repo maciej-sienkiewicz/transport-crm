@@ -1,5 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { X, Trash2, AlertTriangle, User, Truck, Users, MapPin, Clock, Map as MapIcon, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/Select';
 import { Button } from '@/shared/ui/Button';
@@ -74,6 +75,51 @@ interface RouteBuilderCardProps {
 }
 
 const GOOGLE_MAPS_API_KEY = '';
+
+// Helper function to check if two addresses are the same
+const isSameAddress = (addr1: RoutePoint['address'], addr2: RoutePoint['address']): boolean => {
+    return (
+        addr1.street === addr2.street &&
+        addr1.houseNumber === addr2.houseNumber &&
+        addr1.apartmentNumber === addr2.apartmentNumber &&
+        addr1.postalCode === addr2.postalCode &&
+        addr1.city === addr2.city
+    );
+};
+
+// Helper function to check if reorder would violate PICKUP before DROPOFF rule
+const wouldViolatePickupDropoffOrder = (points: RoutePoint[], sourceIndex: number, targetIndex: number): boolean => {
+    const pointToMove = points[sourceIndex];
+    const newPoints = [...points];
+    newPoints.splice(sourceIndex, 1);
+    newPoints.splice(targetIndex, 0, pointToMove);
+
+    // Check each schedule
+    const scheduleMap = new Map<string, { pickupOrder: number; dropoffOrder: number }>();
+
+    newPoints.forEach((point, index) => {
+        if (!scheduleMap.has(point.scheduleId)) {
+            scheduleMap.set(point.scheduleId, { pickupOrder: -1, dropoffOrder: -1 });
+        }
+        const orders = scheduleMap.get(point.scheduleId)!;
+        if (point.type === 'PICKUP') {
+            orders.pickupOrder = index;
+        } else {
+            orders.dropoffOrder = index;
+        }
+    });
+
+    // Check if any DROPOFF comes before PICKUP
+    for (const [scheduleId, orders] of scheduleMap) {
+        if (orders.pickupOrder !== -1 && orders.dropoffOrder !== -1) {
+            if (orders.dropoffOrder < orders.pickupOrder) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+};
 
 export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                                                       route,
@@ -172,6 +218,31 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         return warnings;
     }, [selectedVehicle, route.points, calculateCapacity]);
 
+    // Identify adjacent points with same address
+    const adjacentAddressGroups = useMemo(() => {
+        const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+        const groups = new Map<string, number>();
+        let currentGroup = 0;
+
+        for (let i = 0; i < sortedPoints.length; i++) {
+            const current = sortedPoints[i];
+            const prev = i > 0 ? sortedPoints[i - 1] : null;
+
+            if (prev && isSameAddress(current.address, prev.address)) {
+                const prevGroupId = groups.get(prev.id);
+                if (prevGroupId !== undefined) {
+                    groups.set(current.id, prevGroupId);
+                } else {
+                    groups.set(prev.id, currentGroup);
+                    groups.set(current.id, currentGroup);
+                    currentGroup++;
+                }
+            }
+        }
+
+        return groups;
+    }, [route.points]);
+
     const getRoutePoints = useCallback(() => {
         const points: Array<{
             address: string;
@@ -210,26 +281,18 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         setIsMapModalOpen(true);
     }, [route.points.length]);
 
-    // FIXED: Obsługa drag & drop dla całej karty trasy
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
-
-        console.log('🔵 RouteCard DragOver - Route:', route.routeName || `Trasa ${index + 1}`,
-            'DraggedItem:', draggedItem ? `${draggedItem.child.firstName} ${draggedItem.child.lastName}` : 'null',
-            'DraggedPoint:', draggedPoint ? 'point' : 'null');
-
         setIsDragOver(true);
-    }, [route.routeName, index, draggedItem, draggedPoint]);
+    }, []);
 
     const handleDragLeave = useCallback((e: React.DragEvent) => {
-        // FIXED: Sprawdź czy naprawdę wychodzimy z karty (a nie tylko z child elementu)
         const rect = e.currentTarget.getBoundingClientRect();
         const x = e.clientX;
         const y = e.clientY;
 
         if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
-            console.log('🔵 RouteCard DragLeave - REALLY leaving');
             setIsDragOver(false);
             setDragOverIndex(null);
         }
@@ -239,22 +302,32 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        console.log('🟢 RouteCard DROP - Route:', route.routeName || `Trasa ${index + 1}`,
-            'DraggedItem:', draggedItem ? `${draggedItem.child.firstName} ${draggedItem.child.lastName}` : 'null');
-
         setIsDragOver(false);
         setDragOverIndex(null);
 
         if (draggedItem) {
-            console.log('🟢 Dropping child:', draggedItem.child.firstName, draggedItem.child.lastName);
-            console.log('🟢 Calling onAddPoints...');
-            const result = onAddPoints(route.id, draggedItem.child, draggedItem.schedule);
-            console.log('🟢 onAddPoints result:', result);
+            onAddPoints(route.id, draggedItem.child, draggedItem.schedule);
         } else if (draggedPoint && draggedPoint.routeId !== route.id) {
-            console.log('🟢 Dropping point from another route');
             onMovePointBetweenRoutes(draggedPoint.routeId, route.id, draggedPoint.point.id);
         }
-    }, [route.id, route.routeName, index, draggedItem, draggedPoint, onAddPoints, onMovePointBetweenRoutes]);
+    }, [route.id, draggedItem, draggedPoint, onAddPoints, onMovePointBetweenRoutes]);
+
+    const handleChildCardDragOver = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+    }, []);
+
+    const handleChildCardDrop = useCallback((e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        setIsDragOver(false);
+
+        if (draggedItem) {
+            onAddPoints(route.id, draggedItem.child, draggedItem.schedule);
+        }
+    }, [route.id, draggedItem, onAddPoints]);
 
     const handlePointDragOver = (e: React.DragEvent, targetIndex: number) => {
         e.preventDefault();
@@ -271,6 +344,12 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
             const sourceIndex = route.points.findIndex(p => p.id === draggedPoint.point.id);
             if (sourceIndex === targetIndex) return;
 
+            // Validate that reorder won't violate PICKUP before DROPOFF rule
+            if (wouldViolatePickupDropoffOrder(route.points, sourceIndex, targetIndex)) {
+                toast.error('Nie można przesunąć: dowóz nie może być przed odbiorem tego samego dziecka!');
+                return;
+            }
+
             const newPoints = [...route.points];
             const [removed] = newPoints.splice(sourceIndex, 1);
             newPoints.splice(targetIndex, 0, removed);
@@ -285,6 +364,12 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         const currentIndex = route.points.findIndex(p => p.id === pointId);
         if (currentIndex <= 0) return;
 
+        // Validate before moving
+        if (wouldViolatePickupDropoffOrder(route.points, currentIndex, currentIndex - 1)) {
+            toast.error('Nie można przesunąć: dowóz nie może być przed odbiorem tego samego dziecka!');
+            return;
+        }
+
         const newPoints = [...route.points];
         [newPoints[currentIndex - 1], newPoints[currentIndex]] = [newPoints[currentIndex], newPoints[currentIndex - 1]];
         onReorderPoints(route.id, newPoints);
@@ -293,6 +378,12 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
     const handleMovePointDown = (pointId: string) => {
         const currentIndex = route.points.findIndex(p => p.id === pointId);
         if (currentIndex >= route.points.length - 1) return;
+
+        // Validate before moving
+        if (wouldViolatePickupDropoffOrder(route.points, currentIndex, currentIndex + 1)) {
+            toast.error('Nie można przesunąć: dowóz nie może być przed odbiorem tego samego dziecka!');
+            return;
+        }
 
         const newPoints = [...route.points];
         [newPoints[currentIndex], newPoints[currentIndex + 1]] = [newPoints[currentIndex + 1], newPoints[currentIndex]];
@@ -350,7 +441,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                             label="Pojazd"
                             value={route.vehicleId}
                             onChange={(e) => {
-                                console.log('🚗 Zmiana pojazdu:', e.target.value);
                                 onUpdate(route.id, { vehicleId: e.target.value });
                             }}
                             options={vehicles.map(v => ({
@@ -433,7 +523,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                         <SectionTitle>
                             Punkty trasy ({route.points.length})
                         </SectionTitle>
-                        {/* FIXED: Drop zone ZAWSZE przyjmuje eventy, niezależnie od tego czy jest pusta czy nie */}
                         <DropZone
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
@@ -455,87 +544,109 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                     </div>
                                 </EmptyDropZone>
                             ) : (
-                                sortedPoints.map((point, idx) => (
-                                    <RouteChildCard
-                                        key={point.id}
-                                        draggable
-                                        onDragStart={(e) => {
-                                            // FIXED: Zapobiegaj propagacji do parent
-                                            e.stopPropagation();
-                                            onDragStartPoint(route.id, point);
-                                        }}
-                                        onDragEnd={onDragEnd}
-                                        onDragOver={(e) => handlePointDragOver(e, idx)}
-                                        onDrop={(e) => handlePointDrop(e, idx)}
-                                        style={{
-                                            borderTop: dragOverIndex === idx ? '2px solid #3b82f6' : undefined,
-                                        }}
-                                    >
-                                        <OrderBadge>{point.order}</OrderBadge>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#64748b' }}>
-                                            <GripVertical size={16} />
-                                        </div>
-                                        <ChildInfo>
-                                            <ChildName>
-                                                {point.type === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}: {point.childName}
-                                            </ChildName>
-                                            <ChildDetails>
-                                                <div>
-                                                    <Clock size={11} style={{ display: 'inline', marginRight: 4 }} />
-                                                    {point.estimatedTime}
-                                                </div>
-                                                <div>
-                                                    <MapPin size={11} style={{ display: 'inline', marginRight: 4 }} />
-                                                    {point.address.label} - {point.address.street} {point.address.houseNumber}
-                                                    {point.address.apartmentNumber && `/${point.address.apartmentNumber}`}
-                                                </div>
-                                                {(point.transportNeeds.wheelchair || point.transportNeeds.specialSeat) && (
-                                                    <div style={{ display: 'flex', gap: '3px', marginTop: '3px' }}>
-                                                        {point.transportNeeds.wheelchair && (
-                                                            <NeedBadge $variant="wheelchair">
-                                                                Wózek (2 miejsca)
-                                                            </NeedBadge>
-                                                        )}
-                                                        {point.transportNeeds.specialSeat && (
-                                                            <NeedBadge $variant="seat">Fotelik</NeedBadge>
-                                                        )}
+                                sortedPoints.map((point, idx) => {
+                                    const adjacentGroup = adjacentAddressGroups.get(point.id);
+                                    const hasAdjacentAddress = adjacentGroup !== undefined;
+
+                                    return (
+                                        <RouteChildCard
+                                            key={point.id}
+                                            draggable
+                                            onDragStart={(e) => {
+                                                e.stopPropagation();
+                                                onDragStartPoint(route.id, point);
+                                            }}
+                                            onDragEnd={onDragEnd}
+                                            onDragOver={(e) => {
+                                                handlePointDragOver(e, idx);
+                                                handleChildCardDragOver(e);
+                                            }}
+                                            onDrop={(e) => {
+                                                handlePointDrop(e, idx);
+                                                handleChildCardDrop(e);
+                                            }}
+                                            style={{
+                                                borderTop: dragOverIndex === idx ? '2px solid #3b82f6' : undefined,
+                                                borderLeft: hasAdjacentAddress ? '3px solid #8b5cf6' : undefined,
+                                                backgroundColor: hasAdjacentAddress ? '#faf5ff' : undefined,
+                                            }}
+                                        >
+                                            <OrderBadge>{point.order}</OrderBadge>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#64748b' }}>
+                                                <GripVertical size={16} />
+                                            </div>
+                                            <ChildInfo>
+                                                <ChildName>
+                                                    {point.type === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}: {point.childName}
+                                                    {hasAdjacentAddress && (
+                                                        <span style={{
+                                                            marginLeft: '0.5rem',
+                                                            fontSize: '0.75rem',
+                                                            color: '#8b5cf6',
+                                                            fontWeight: 600
+                                                        }}>
+                                                            ● Ten sam adres
+                                                        </span>
+                                                    )}
+                                                </ChildName>
+                                                <ChildDetails>
+                                                    <div>
+                                                        <Clock size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                                        {point.estimatedTime}
                                                     </div>
-                                                )}
-                                            </ChildDetails>
-                                        </ChildInfo>
-                                        <ChildActions>
-                                            <RemoveChildButton
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleMovePointUp(point.id);
-                                                }}
-                                                disabled={idx === 0}
-                                                title="Przesuń w górę"
-                                            >
-                                                <ArrowUp size={14} />
-                                            </RemoveChildButton>
-                                            <RemoveChildButton
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleMovePointDown(point.id);
-                                                }}
-                                                disabled={idx === sortedPoints.length - 1}
-                                                title="Przesuń w dół"
-                                            >
-                                                <ArrowDown size={14} />
-                                            </RemoveChildButton>
-                                            <RemoveChildButton
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onRemovePoint(route.id, point.id);
-                                                }}
-                                                title="Usuń z trasy"
-                                            >
-                                                <X size={14} />
-                                            </RemoveChildButton>
-                                        </ChildActions>
-                                    </RouteChildCard>
-                                ))
+                                                    <div>
+                                                        <MapPin size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                                        {point.address.label} - {point.address.street} {point.address.houseNumber}
+                                                        {point.address.apartmentNumber && `/${point.address.apartmentNumber}`}
+                                                    </div>
+                                                    {(point.transportNeeds.wheelchair || point.transportNeeds.specialSeat) && (
+                                                        <div style={{ display: 'flex', gap: '3px', marginTop: '3px' }}>
+                                                            {point.transportNeeds.wheelchair && (
+                                                                <NeedBadge $variant="wheelchair">
+                                                                    Wózek (2 miejsca)
+                                                                </NeedBadge>
+                                                            )}
+                                                            {point.transportNeeds.specialSeat && (
+                                                                <NeedBadge $variant="seat">Fotelik</NeedBadge>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </ChildDetails>
+                                            </ChildInfo>
+                                            <ChildActions>
+                                                <RemoveChildButton
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleMovePointUp(point.id);
+                                                    }}
+                                                    disabled={idx === 0}
+                                                    title="Przesuń w górę"
+                                                >
+                                                    <ArrowUp size={14} />
+                                                </RemoveChildButton>
+                                                <RemoveChildButton
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleMovePointDown(point.id);
+                                                    }}
+                                                    disabled={idx === sortedPoints.length - 1}
+                                                    title="Przesuń w dół"
+                                                >
+                                                    <ArrowDown size={14} />
+                                                </RemoveChildButton>
+                                                <RemoveChildButton
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onRemovePoint(route.id, point.id);
+                                                    }}
+                                                    title="Usuń z trasy"
+                                                >
+                                                    <X size={14} />
+                                                </RemoveChildButton>
+                                            </ChildActions>
+                                        </RouteChildCard>
+                                    );
+                                })
                             )}
                         </DropZone>
                     </ChildrenSection>

@@ -66,17 +66,15 @@ export const MultiRoutePlanner: React.FC = () => {
     const { data: driversData, isLoading: isLoadingDrivers } = useAvailableDrivers();
     const { data: vehiclesData, isLoading: isLoadingVehicles } = useAvailableVehicles();
 
-    // Backend już zwraca płaską strukturę: każdy element = para (child, schedule)
     const childScheduleItems = useMemo<ChildScheduleItem[]>(() => {
         if (!availableChildren) return [];
 
         return availableChildren.map(item => ({
             child: item,
-            schedule: item.schedule // schedule to już pojedynczy obiekt
+            schedule: item.schedule
         }));
     }, [availableChildren]);
 
-    // Calculate which child-schedule combinations are not assigned
     const unassignedItems = useMemo(() => {
         const assignedScheduleIds = new Set(
             routes.flatMap(route => route.points.map(p => p.scheduleId))
@@ -108,42 +106,26 @@ export const MultiRoutePlanner: React.FC = () => {
     }, []);
 
     const handleAddPointsToRoute = useCallback((routeId: string, child: AvailableChild, schedule: ChildSchedule) => {
-        console.log('🔵 handleAddPointsToRoute wywołane:', { routeId, childName: `${child.firstName} ${child.lastName}`, scheduleId: schedule.id });
-
-        // Znajdź trasę
         const route = routes.find(r => r.id === routeId);
         if (!route) {
-            console.error('❌ Nie znaleziono trasy:', routeId);
             toast.error('Nie znaleziono trasy');
             return false;
         }
 
-        console.log('✅ Znaleziono trasę:', { routeName: route.routeName, vehicleId: route.vehicleId, pointsCount: route.points.length });
-
-        // Sprawdź czy pojazd jest wybrany
         if (!route.vehicleId) {
-            console.warn('⚠️ Brak wybranego pojazdu');
             toast.error('Najpierw wybierz pojazd dla tej trasy');
             return false;
         }
 
-        // Check if this schedule is already in this route
         const alreadyInRoute = route.points.find(p => p.scheduleId === schedule.id);
         if (alreadyInRoute) {
-            console.warn('⚠️ Dziecko już jest w tej trasie');
             toast.error(`${child.firstName} ${child.lastName} jest już w tej trasie`);
             return false;
         }
 
-        console.log('✅ Dziecko nie jest jeszcze w trasie');
-
-        // Check vehicle capacity
         if (vehiclesData) {
             const vehicle = vehiclesData.content.find(v => v.id === route.vehicleId);
             if (vehicle) {
-                console.log('✅ Znaleziono pojazd:', { registration: vehicle.registrationNumber, totalSeats: vehicle.capacity.totalSeats, wheelchairSpaces: vehicle.capacity.wheelchairSpaces });
-
-                // Calculate current capacity
                 const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
                 const inVehicleSchedules = new Map<string, { wheelchair: boolean }>();
                 let maxSeatsNeeded = 0;
@@ -162,36 +144,21 @@ export const MultiRoutePlanner: React.FC = () => {
                     maxSeatsNeeded = Math.max(maxSeatsNeeded, currentSeats);
                 });
 
-                console.log('📊 Obecna capacity:', { maxSeatsNeeded, totalSeats: vehicle.capacity.totalSeats });
-
-                // Check if adding this child would exceed capacity
                 const additionalSeats = child.transportNeeds.wheelchair ? 2 : 1;
                 const newMaxSeats = maxSeatsNeeded + additionalSeats;
 
-                console.log('📊 Po dodaniu dziecka:', { newMaxSeats, additionalSeats, wheelchair: child.transportNeeds.wheelchair });
-
                 if (newMaxSeats > vehicle.capacity.totalSeats) {
-                    console.error('❌ Przekroczono capacity:', { newMaxSeats, totalSeats: vehicle.capacity.totalSeats });
                     toast.error(`Przekroczono pojemność pojazdu! (${newMaxSeats}/${vehicle.capacity.totalSeats} miejsc)`);
                     return false;
                 }
 
-                // Check wheelchair spaces
                 const wheelchairCount = Array.from(inVehicleSchedules.values()).filter(v => v.wheelchair).length;
                 if (child.transportNeeds.wheelchair && wheelchairCount >= vehicle.capacity.wheelchairSpaces) {
-                    console.error('❌ Brak miejsc na wózki:', { wheelchairCount, wheelchairSpaces: vehicle.capacity.wheelchairSpaces });
                     toast.error(`Brak miejsc na wózki! (${wheelchairCount}/${vehicle.capacity.wheelchairSpaces})`);
                     return false;
                 }
-
-                console.log('✅ Capacity OK, można dodać dziecko');
-            } else {
-                console.warn('⚠️ Nie znaleziono pojazdu w danych');
             }
         }
-
-        // Wszystko OK - dodajemy dziecko
-        console.log('🟢 Dodawanie dziecka do trasy...');
 
         setRoutes(prev =>
             prev.map(r => {
@@ -231,8 +198,6 @@ export const MultiRoutePlanner: React.FC = () => {
                     transportNeeds: child.transportNeeds,
                 };
 
-                console.log('✅ Utworzono punkty:', { pickup: pickupPoint.id, dropoff: dropoffPoint.id });
-
                 return {
                     ...r,
                     points: [...r.points, pickupPoint, dropoffPoint],
@@ -240,7 +205,6 @@ export const MultiRoutePlanner: React.FC = () => {
             })
         );
 
-        console.log('🎉 Dziecko dodane pomyślnie!');
         toast.success(`Dodano ${child.firstName} ${child.lastName} do trasy`);
         return true;
     }, [routes, vehiclesData]);
@@ -253,7 +217,6 @@ export const MultiRoutePlanner: React.FC = () => {
                 const pointToRemove = route.points.find(p => p.id === pointId);
                 if (!pointToRemove) return route;
 
-                // Remove both pickup and dropoff points for this schedule
                 const updatedPoints = route.points
                     .filter(p => p.scheduleId !== pointToRemove.scheduleId)
                     .map((p, index) => ({ ...p, order: index + 1 }));
@@ -279,10 +242,8 @@ export const MultiRoutePlanner: React.FC = () => {
 
             if (!pointToMove) return;
 
-            // Get both points for this schedule
             const schedulePoints = fromRoute!.points.filter(p => p.scheduleId === pointToMove.scheduleId);
 
-            // Check capacity of target route
             const toRoute = routes.find(r => r.id === toRouteId);
             if (toRoute && toRoute.vehicleId && vehiclesData) {
                 const vehicle = vehiclesData.content.find(v => v.id === toRoute.vehicleId);
@@ -313,7 +274,6 @@ export const MultiRoutePlanner: React.FC = () => {
                 }
             }
 
-            // Remove from source route
             setRoutes(prev =>
                 prev.map(route => {
                     if (route.id === fromRouteId) {
@@ -342,17 +302,14 @@ export const MultiRoutePlanner: React.FC = () => {
     );
 
     const handleDragStart = useCallback((child: AvailableChild, schedule: ChildSchedule) => {
-        console.log('🖱️ Drag Start:', { childName: `${child.firstName} ${child.lastName}`, scheduleId: schedule.id });
         setDraggedItem({ child, schedule });
     }, []);
 
     const handleDragStartPoint = useCallback((routeId: string, point: RoutePoint) => {
-        console.log('🖱️ Drag Start Point:', { routeId, pointId: point.id, childName: point.childName });
         setDraggedPoint({ routeId, point });
     }, []);
 
     const handleDragEnd = useCallback(() => {
-        console.log('🖱️ Drag End');
         setDraggedItem(null);
         setDraggedPoint(null);
     }, []);
@@ -374,11 +331,9 @@ export const MultiRoutePlanner: React.FC = () => {
                 errors.push(`Trasa ${index + 1}: Brak przypisanych punktów`);
             }
 
-            // Check vehicle capacity
             if (route.vehicleId && vehiclesData) {
                 const vehicle = vehiclesData.content.find(v => v.id === route.vehicleId);
                 if (vehicle) {
-                    // Calculate max concurrent children
                     let maxConcurrent = 0;
                     const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
                     let currentInVehicle = 0;
@@ -394,7 +349,6 @@ export const MultiRoutePlanner: React.FC = () => {
                         maxConcurrent = Math.max(maxConcurrent, currentInVehicle);
                     });
 
-                    // Calculate seats needed considering wheelchairs
                     let maxSeatsNeeded = 0;
                     const scheduleSeats = new Map<string, number>();
 
@@ -424,7 +378,6 @@ export const MultiRoutePlanner: React.FC = () => {
                         errors.push(`Trasa ${index + 1}: Przekroczono pojemność pojazdu (${maxSeatsNeeded}/${vehicle.capacity.totalSeats} miejsc)`);
                     }
 
-                    // Check wheelchair spaces
                     const wheelchairPoints = route.points.filter(p => p.transportNeeds.wheelchair);
                     const uniqueWheelchairSchedules = new Set(wheelchairPoints.map(p => p.scheduleId));
 
@@ -490,7 +443,6 @@ export const MultiRoutePlanner: React.FC = () => {
                 window.location.href = '/routes';
             }, 1500);
         } catch (error) {
-            console.error('Błąd podczas zapisywania tras:', error);
             toast.error('Wystąpił błąd podczas zapisywania tras');
         } finally {
             setIsSaving(false);
