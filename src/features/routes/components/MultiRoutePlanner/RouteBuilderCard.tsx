@@ -65,7 +65,7 @@ interface RouteBuilderCardProps {
     draggedPoint: { routeId: string; point: RoutePoint } | null;
     onUpdate: (routeId: string, updates: Partial<RouteBuilder>) => void;
     onRemove: (routeId: string) => void;
-    onAddPoints: (routeId: string, child: AvailableChild, schedule: ChildSchedule) => void;
+    onAddPoints: (routeId: string, child: AvailableChild, schedule: ChildSchedule) => boolean;
     onRemovePoint: (routeId: string, pointId: string) => void;
     onReorderPoints: (routeId: string, points: RoutePoint[]) => void;
     onMovePointBetweenRoutes: (fromRouteId: string, toRouteId: string, pointId: string) => void;
@@ -101,7 +101,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
     const calculateCapacity = useCallback(() => {
         if (!selectedVehicle) return { used: 0, total: 0, percentage: 0, overCapacity: false };
 
-        // Calculate max concurrent occupancy
         const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
         let maxSeats = 0;
         const inVehicle = new Map<string, { wheelchair: boolean }>();
@@ -132,7 +131,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
 
         if (!selectedVehicle) return warnings;
 
-        // Check wheelchair spaces
         const wheelchairSchedules = new Set<string>();
         route.points.forEach(point => {
             if (point.transportNeeds.wheelchair) {
@@ -151,7 +149,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
             warnings.push('Przekroczono pojemność pojazdu!');
         }
 
-        // Check for pickup before dropoff
         const scheduleOrders = new Map<string, { pickupOrder: number; dropoffOrder: number }>();
         route.points.forEach(point => {
             if (!scheduleOrders.has(point.scheduleId)) {
@@ -213,36 +210,51 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         setIsMapModalOpen(true);
     }, [route.points.length]);
 
-    const handleDragOver = (e: React.DragEvent) => {
+    // FIXED: Obsługa drag & drop dla całej karty trasy
+    const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();
-        setIsDragOver(true);
-    };
+        e.stopPropagation();
 
-    const handleDragLeave = (e: React.DragEvent) => {
-        if (e.currentTarget === e.target) {
+        console.log('🔵 RouteCard DragOver - Route:', route.routeName || `Trasa ${index + 1}`,
+            'DraggedItem:', draggedItem ? `${draggedItem.child.firstName} ${draggedItem.child.lastName}` : 'null',
+            'DraggedPoint:', draggedPoint ? 'point' : 'null');
+
+        setIsDragOver(true);
+    }, [route.routeName, index, draggedItem, draggedPoint]);
+
+    const handleDragLeave = useCallback((e: React.DragEvent) => {
+        // FIXED: Sprawdź czy naprawdę wychodzimy z karty (a nie tylko z child elementu)
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX;
+        const y = e.clientY;
+
+        if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+            console.log('🔵 RouteCard DragLeave - REALLY leaving');
             setIsDragOver(false);
             setDragOverIndex(null);
         }
-    };
+    }, []);
 
-    const handleDrop = (e: React.DragEvent) => {
+    const handleDrop = useCallback((e: React.DragEvent) => {
         e.preventDefault();
+        e.stopPropagation();
+
+        console.log('🟢 RouteCard DROP - Route:', route.routeName || `Trasa ${index + 1}`,
+            'DraggedItem:', draggedItem ? `${draggedItem.child.firstName} ${draggedItem.child.lastName}` : 'null');
+
         setIsDragOver(false);
         setDragOverIndex(null);
 
         if (draggedItem) {
-            const capacity = calculateCapacity();
-            const additionalSeats = draggedItem.child.transportNeeds.wheelchair ? 2 : 1;
-
-            if (selectedVehicle && capacity.used + additionalSeats > selectedVehicle.capacity.totalSeats) {
-                return;
-            }
-
-            onAddPoints(route.id, draggedItem.child, draggedItem.schedule);
+            console.log('🟢 Dropping child:', draggedItem.child.firstName, draggedItem.child.lastName);
+            console.log('🟢 Calling onAddPoints...');
+            const result = onAddPoints(route.id, draggedItem.child, draggedItem.schedule);
+            console.log('🟢 onAddPoints result:', result);
         } else if (draggedPoint && draggedPoint.routeId !== route.id) {
+            console.log('🟢 Dropping point from another route');
             onMovePointBetweenRoutes(draggedPoint.routeId, route.id, draggedPoint.point.id);
         }
-    };
+    }, [route.id, route.routeName, index, draggedItem, draggedPoint, onAddPoints, onMovePointBetweenRoutes]);
 
     const handlePointDragOver = (e: React.DragEvent, targetIndex: number) => {
         e.preventDefault();
@@ -256,7 +268,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         setDragOverIndex(null);
 
         if (draggedPoint && draggedPoint.routeId === route.id) {
-            // Reorder within same route
             const sourceIndex = route.points.findIndex(p => p.id === draggedPoint.point.id);
             if (sourceIndex === targetIndex) return;
 
@@ -266,7 +277,6 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
 
             onReorderPoints(route.id, newPoints);
         } else if (draggedPoint && draggedPoint.routeId !== route.id) {
-            // Move from another route
             onMovePointBetweenRoutes(draggedPoint.routeId, route.id, draggedPoint.point.id);
         }
     };
@@ -340,6 +350,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                             label="Pojazd"
                             value={route.vehicleId}
                             onChange={(e) => {
+                                console.log('🚗 Zmiana pojazdu:', e.target.value);
                                 onUpdate(route.id, { vehicleId: e.target.value });
                             }}
                             options={vehicles.map(v => ({
@@ -359,6 +370,23 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                             required
                         />
                     </FormSection>
+
+                    {!route.vehicleId && (
+                        <div style={{
+                            padding: '0.75rem',
+                            background: '#fef3c7',
+                            border: '1px solid #fbbf24',
+                            borderRadius: '0.75rem',
+                            color: '#92400e',
+                            fontSize: '0.875rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}>
+                            <AlertTriangle size={16} />
+                            Wybierz pojazd, aby móc przypisywać dzieci
+                        </div>
+                    )}
 
                     {selectedVehicle && (
                         <>
@@ -405,24 +433,37 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                         <SectionTitle>
                             Punkty trasy ({route.points.length})
                         </SectionTitle>
+                        {/* FIXED: Drop zone ZAWSZE przyjmuje eventy, niezależnie od tego czy jest pusta czy nie */}
                         <DropZone
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={handleDrop}
                             $isDragOver={isDragOver}
                             $isEmpty={route.points.length === 0}
+                            style={{
+                                backgroundColor: isDragOver ? '#eff6ff' : undefined,
+                                minHeight: route.points.length === 0 ? '120px' : 'auto',
+                            }}
                         >
                             {route.points.length === 0 ? (
                                 <EmptyDropZone>
                                     <Users size={28} />
-                                    <div>Przeciągnij dzieci tutaj</div>
+                                    <div>
+                                        {!route.vehicleId
+                                            ? 'Najpierw wybierz pojazd'
+                                            : 'Przeciągnij dzieci tutaj'}
+                                    </div>
                                 </EmptyDropZone>
                             ) : (
                                 sortedPoints.map((point, idx) => (
                                     <RouteChildCard
                                         key={point.id}
                                         draggable
-                                        onDragStart={() => onDragStartPoint(route.id, point)}
+                                        onDragStart={(e) => {
+                                            // FIXED: Zapobiegaj propagacji do parent
+                                            e.stopPropagation();
+                                            onDragStartPoint(route.id, point);
+                                        }}
                                         onDragEnd={onDragEnd}
                                         onDragOver={(e) => handlePointDragOver(e, idx)}
                                         onDrop={(e) => handlePointDrop(e, idx)}

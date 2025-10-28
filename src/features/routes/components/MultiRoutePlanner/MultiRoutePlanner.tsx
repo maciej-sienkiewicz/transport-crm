@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Plus, Save, Calendar, AlertTriangle } from 'lucide-react';
+import { Plus, Save, Calendar, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAvailableChildren } from '../../hooks/useAvailableChildren';
 import { useAvailableDrivers } from '../../hooks/useAvailableDrivers';
@@ -57,6 +57,7 @@ export const MultiRoutePlanner: React.FC = () => {
     const [draggedItem, setDraggedItem] = useState<{ child: AvailableChild; schedule: ChildSchedule } | null>(null);
     const [draggedPoint, setDraggedPoint] = useState<{ routeId: string; point: RoutePoint } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isPoolCollapsed, setIsPoolCollapsed] = useState(false);
 
     const { data: availableChildren, isLoading: isLoadingChildren } = useAvailableChildren(
         selectedDate,
@@ -107,15 +108,97 @@ export const MultiRoutePlanner: React.FC = () => {
     }, []);
 
     const handleAddPointsToRoute = useCallback((routeId: string, child: AvailableChild, schedule: ChildSchedule) => {
+        console.log('🔵 handleAddPointsToRoute wywołane:', { routeId, childName: `${child.firstName} ${child.lastName}`, scheduleId: schedule.id });
+
+        // Znajdź trasę
+        const route = routes.find(r => r.id === routeId);
+        if (!route) {
+            console.error('❌ Nie znaleziono trasy:', routeId);
+            toast.error('Nie znaleziono trasy');
+            return false;
+        }
+
+        console.log('✅ Znaleziono trasę:', { routeName: route.routeName, vehicleId: route.vehicleId, pointsCount: route.points.length });
+
+        // Sprawdź czy pojazd jest wybrany
+        if (!route.vehicleId) {
+            console.warn('⚠️ Brak wybranego pojazdu');
+            toast.error('Najpierw wybierz pojazd dla tej trasy');
+            return false;
+        }
+
+        // Check if this schedule is already in this route
+        const alreadyInRoute = route.points.find(p => p.scheduleId === schedule.id);
+        if (alreadyInRoute) {
+            console.warn('⚠️ Dziecko już jest w tej trasie');
+            toast.error(`${child.firstName} ${child.lastName} jest już w tej trasie`);
+            return false;
+        }
+
+        console.log('✅ Dziecko nie jest jeszcze w trasie');
+
+        // Check vehicle capacity
+        if (vehiclesData) {
+            const vehicle = vehiclesData.content.find(v => v.id === route.vehicleId);
+            if (vehicle) {
+                console.log('✅ Znaleziono pojazd:', { registration: vehicle.registrationNumber, totalSeats: vehicle.capacity.totalSeats, wheelchairSpaces: vehicle.capacity.wheelchairSpaces });
+
+                // Calculate current capacity
+                const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+                const inVehicleSchedules = new Map<string, { wheelchair: boolean }>();
+                let maxSeatsNeeded = 0;
+
+                sortedPoints.forEach(point => {
+                    if (point.type === 'PICKUP') {
+                        inVehicleSchedules.set(point.scheduleId, { wheelchair: point.transportNeeds.wheelchair });
+                    } else {
+                        inVehicleSchedules.delete(point.scheduleId);
+                    }
+
+                    let currentSeats = 0;
+                    inVehicleSchedules.forEach(({ wheelchair }) => {
+                        currentSeats += wheelchair ? 2 : 1;
+                    });
+                    maxSeatsNeeded = Math.max(maxSeatsNeeded, currentSeats);
+                });
+
+                console.log('📊 Obecna capacity:', { maxSeatsNeeded, totalSeats: vehicle.capacity.totalSeats });
+
+                // Check if adding this child would exceed capacity
+                const additionalSeats = child.transportNeeds.wheelchair ? 2 : 1;
+                const newMaxSeats = maxSeatsNeeded + additionalSeats;
+
+                console.log('📊 Po dodaniu dziecka:', { newMaxSeats, additionalSeats, wheelchair: child.transportNeeds.wheelchair });
+
+                if (newMaxSeats > vehicle.capacity.totalSeats) {
+                    console.error('❌ Przekroczono capacity:', { newMaxSeats, totalSeats: vehicle.capacity.totalSeats });
+                    toast.error(`Przekroczono pojemność pojazdu! (${newMaxSeats}/${vehicle.capacity.totalSeats} miejsc)`);
+                    return false;
+                }
+
+                // Check wheelchair spaces
+                const wheelchairCount = Array.from(inVehicleSchedules.values()).filter(v => v.wheelchair).length;
+                if (child.transportNeeds.wheelchair && wheelchairCount >= vehicle.capacity.wheelchairSpaces) {
+                    console.error('❌ Brak miejsc na wózki:', { wheelchairCount, wheelchairSpaces: vehicle.capacity.wheelchairSpaces });
+                    toast.error(`Brak miejsc na wózki! (${wheelchairCount}/${vehicle.capacity.wheelchairSpaces})`);
+                    return false;
+                }
+
+                console.log('✅ Capacity OK, można dodać dziecko');
+            } else {
+                console.warn('⚠️ Nie znaleziono pojazdu w danych');
+            }
+        }
+
+        // Wszystko OK - dodajemy dziecko
+        console.log('🟢 Dodawanie dziecka do trasy...');
+
         setRoutes(prev =>
-            prev.map(route => {
-                if (route.id !== routeId) return route;
+            prev.map(r => {
+                if (r.id !== routeId) return r;
 
-                // Check if this schedule is already in this route
-                if (route.points.find(p => p.scheduleId === schedule.id)) return route;
-
-                const currentMaxOrder = route.points.length > 0
-                    ? Math.max(...route.points.map(p => p.order))
+                const currentMaxOrder = r.points.length > 0
+                    ? Math.max(...r.points.map(p => p.order))
                     : 0;
 
                 const pickupPoint: RoutePoint = {
@@ -148,13 +231,19 @@ export const MultiRoutePlanner: React.FC = () => {
                     transportNeeds: child.transportNeeds,
                 };
 
+                console.log('✅ Utworzono punkty:', { pickup: pickupPoint.id, dropoff: dropoffPoint.id });
+
                 return {
-                    ...route,
-                    points: [...route.points, pickupPoint, dropoffPoint],
+                    ...r,
+                    points: [...r.points, pickupPoint, dropoffPoint],
                 };
             })
         );
-    }, []);
+
+        console.log('🎉 Dziecko dodane pomyślnie!');
+        toast.success(`Dodano ${child.firstName} ${child.lastName} do trasy`);
+        return true;
+    }, [routes, vehiclesData]);
 
     const handleRemovePointFromRoute = useCallback((routeId: string, pointId: string) => {
         setRoutes(prev =>
@@ -193,6 +282,37 @@ export const MultiRoutePlanner: React.FC = () => {
             // Get both points for this schedule
             const schedulePoints = fromRoute!.points.filter(p => p.scheduleId === pointToMove.scheduleId);
 
+            // Check capacity of target route
+            const toRoute = routes.find(r => r.id === toRouteId);
+            if (toRoute && toRoute.vehicleId && vehiclesData) {
+                const vehicle = vehiclesData.content.find(v => v.id === toRoute.vehicleId);
+                if (vehicle) {
+                    const sortedPoints = [...toRoute.points].sort((a, b) => a.order - b.order);
+                    const inVehicleSchedules = new Map<string, { wheelchair: boolean }>();
+                    let maxSeatsNeeded = 0;
+
+                    sortedPoints.forEach(point => {
+                        if (point.type === 'PICKUP') {
+                            inVehicleSchedules.set(point.scheduleId, { wheelchair: point.transportNeeds.wheelchair });
+                        } else {
+                            inVehicleSchedules.delete(point.scheduleId);
+                        }
+
+                        let currentSeats = 0;
+                        inVehicleSchedules.forEach(({ wheelchair }) => {
+                            currentSeats += wheelchair ? 2 : 1;
+                        });
+                        maxSeatsNeeded = Math.max(maxSeatsNeeded, currentSeats);
+                    });
+
+                    const additionalSeats = pointToMove.transportNeeds.wheelchair ? 2 : 1;
+                    if (maxSeatsNeeded + additionalSeats > vehicle.capacity.totalSeats) {
+                        toast.error(`Nie można przenieść - przekroczono pojemność pojazdu docelowego!`);
+                        return;
+                    }
+                }
+            }
+
             // Remove from source route
             setRoutes(prev =>
                 prev.map(route => {
@@ -211,24 +331,28 @@ export const MultiRoutePlanner: React.FC = () => {
                             id: `point-${Date.now()}-${p.type.toLowerCase()}-${index}`,
                             order: currentMaxOrder + index + 1,
                         }));
+                        toast.success(`Przeniesiono ${pointToMove.childName} do innej trasy`);
                         return { ...route, points: [...route.points, ...newPoints] };
                     }
                     return route;
                 })
             );
         },
-        [routes]
+        [routes, vehiclesData]
     );
 
     const handleDragStart = useCallback((child: AvailableChild, schedule: ChildSchedule) => {
+        console.log('🖱️ Drag Start:', { childName: `${child.firstName} ${child.lastName}`, scheduleId: schedule.id });
         setDraggedItem({ child, schedule });
     }, []);
 
     const handleDragStartPoint = useCallback((routeId: string, point: RoutePoint) => {
+        console.log('🖱️ Drag Start Point:', { routeId, pointId: point.id, childName: point.childName });
         setDraggedPoint({ routeId, point });
     }, []);
 
     const handleDragEnd = useCallback(() => {
+        console.log('🖱️ Drag End');
         setDraggedItem(null);
         setDraggedPoint(null);
     }, []);
@@ -455,11 +579,37 @@ export const MultiRoutePlanner: React.FC = () => {
                 </GlobalControls>
 
                 <ChildrenPoolSection>
-                    <ChildrenPool
-                        items={unassignedItems}
-                        onDragStart={handleDragStart}
-                        onDragEnd={handleDragEnd}
-                    />
+                    <div style={{
+                        position: 'sticky',
+                        top: '0',
+                        zIndex: 10,
+                        background: '#f8fafc',
+                        paddingBottom: '1rem'
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.5rem'
+                        }}>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setIsPoolCollapsed(!isPoolCollapsed)}
+                                style={{ gap: '0.5rem' }}
+                            >
+                                {isPoolCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+                                {isPoolCollapsed ? 'Pokaż' : 'Ukryj'} pulę dzieci
+                            </Button>
+                        </div>
+                        {!isPoolCollapsed && (
+                            <ChildrenPool
+                                items={unassignedItems}
+                                onDragStart={handleDragStart}
+                                onDragEnd={handleDragEnd}
+                            />
+                        )}
+                    </div>
                 </ChildrenPoolSection>
             </TopSection>
 
