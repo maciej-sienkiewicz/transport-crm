@@ -2,12 +2,48 @@ export type RouteStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export type ChildInRouteStatus = 'PENDING' | 'IN_VEHICLE' | 'DELIVERED' | 'ABSENT';
 
+export type RoutePointType = 'PICKUP' | 'DROPOFF';
+
 export interface RouteChild {
     childId: string;
     scheduleId: string;
     pickupOrder: number;
     estimatedPickupTime: string;
     estimatedDropoffTime: string;
+}
+
+export interface RoutePoint {
+    id: string;
+    type: RoutePointType;
+    childId: string;
+    scheduleId: string;
+    order: number;
+    address: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+    estimatedTime: string;
+    childName: string;
+    childAge: number;
+    guardianName: string;
+    guardianPhone: string;
+    transportNeeds: {
+        wheelchair: boolean;
+        specialSeat: boolean;
+        safetyBelt: boolean;
+    };
+}
+
+export interface CreateRoutePointRequest {
+    type: RoutePointType;
+    childId: string;
+    scheduleId: string;
+    order: number;
+    estimatedTime: string;
 }
 
 export interface CreateRouteRequest {
@@ -17,7 +53,7 @@ export interface CreateRouteRequest {
     vehicleId: string;
     estimatedStartTime: string;
     estimatedEndTime: string;
-    children: RouteChild[];
+    points: CreateRoutePointRequest[];
 }
 
 export interface RouteChildDetail {
@@ -107,6 +143,29 @@ export interface RouteDetail {
     updatedAt: string;
 }
 
+export interface ChildSchedule {
+    id: string;
+    name: string;
+    pickupTime: string;
+    dropoffTime: string;
+    pickupAddress: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+    dropoffAddress: {
+        label: string;
+        street: string;
+        houseNumber: string;
+        apartmentNumber?: string;
+        postalCode: string;
+        city: string;
+    };
+}
+
 export interface AvailableChild {
     id: string;
     firstName: string;
@@ -118,28 +177,8 @@ export interface AvailableChild {
         specialSeat: boolean;
         safetyBelt: boolean;
     };
-    schedule: {
-        id: string;
-        name: string;
-        pickupTime: string;
-        dropoffTime: string;
-        pickupAddress: {
-            label: string;
-            street: string;
-            houseNumber: string;
-            apartmentNumber?: string;
-            postalCode: string;
-            city: string;
-        };
-        dropoffAddress: {
-            label: string;
-            street: string;
-            houseNumber: string;
-            apartmentNumber?: string;
-            postalCode: string;
-            city: string;
-        };
-    };
+    // Backend zwraca płaską strukturę: każdy element array to jedno dziecko + jeden harmonogram
+    schedule: ChildSchedule;
     guardian: {
         firstName: string;
         lastName: string;

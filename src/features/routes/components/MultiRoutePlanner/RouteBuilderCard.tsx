@@ -1,9 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { X, Trash2, AlertTriangle, User, Truck, Users, MapPin, Clock, Map as MapIcon } from 'lucide-react';
+import { X, Trash2, AlertTriangle, User, Truck, Users, MapPin, Clock, Map as MapIcon, ArrowUp, ArrowDown, GripVertical } from 'lucide-react';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/Select';
 import { Button } from '@/shared/ui/Button';
-import { AvailableChild } from '../../types';
+import { AvailableChild, ChildSchedule, RoutePoint } from '../../types';
 import { RouteBuilder } from './MultiRoutePlanner';
 import { RouteMapModal } from './RouteMapModal';
 import {
@@ -61,18 +61,18 @@ interface RouteBuilderCardProps {
     index: number;
     drivers: Driver[];
     vehicles: Vehicle[];
-    draggedChild: AvailableChild | null;
-    draggedFromRoute: string | null;
+    draggedItem: { child: AvailableChild; schedule: ChildSchedule } | null;
+    draggedPoint: { routeId: string; point: RoutePoint } | null;
     onUpdate: (routeId: string, updates: Partial<RouteBuilder>) => void;
     onRemove: (routeId: string) => void;
-    onAddChild: (routeId: string, child: AvailableChild) => void;
-    onRemoveChild: (routeId: string, childId: string) => void;
-    onMoveChildBetweenRoutes: (fromRouteId: string, toRouteId: string, childId: string) => void;
-    onDragStart: (child: AvailableChild, fromRouteId?: string) => void;
+    onAddPoints: (routeId: string, child: AvailableChild, schedule: ChildSchedule) => void;
+    onRemovePoint: (routeId: string, pointId: string) => void;
+    onReorderPoints: (routeId: string, points: RoutePoint[]) => void;
+    onMovePointBetweenRoutes: (fromRouteId: string, toRouteId: string, pointId: string) => void;
+    onDragStartPoint: (routeId: string, point: RoutePoint) => void;
     onDragEnd: () => void;
 }
 
-// Klucz API Google Maps - przenieś to do zmiennych środowiskowych
 const GOOGLE_MAPS_API_KEY = '';
 
 export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
@@ -80,18 +80,20 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                                                       index,
                                                                       drivers,
                                                                       vehicles,
-                                                                      draggedChild,
-                                                                      draggedFromRoute,
+                                                                      draggedItem,
+                                                                      draggedPoint,
                                                                       onUpdate,
                                                                       onRemove,
-                                                                      onAddChild,
-                                                                      onRemoveChild,
-                                                                      onMoveChildBetweenRoutes,
-                                                                      onDragStart,
+                                                                      onAddPoints,
+                                                                      onRemovePoint,
+                                                                      onReorderPoints,
+                                                                      onMovePointBetweenRoutes,
+                                                                      onDragStartPoint,
                                                                       onDragEnd,
                                                                   }) => {
     const [isDragOver, setIsDragOver] = useState(false);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     const selectedVehicle = vehicles.find(v => v.id === route.vehicleId);
     const selectedDriver = drivers.find(d => d.id === route.driverId);
@@ -99,29 +101,48 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
     const calculateCapacity = useCallback(() => {
         if (!selectedVehicle) return { used: 0, total: 0, percentage: 0, overCapacity: false };
 
-        const used = route.children.reduce((sum, child) => {
-            return sum + (child.transportNeeds.wheelchair ? 2 : 1);
-        }, 0);
+        // Calculate max concurrent occupancy
+        const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+        let maxSeats = 0;
+        const inVehicle = new Map<string, { wheelchair: boolean }>();
+
+        sortedPoints.forEach(point => {
+            if (point.type === 'PICKUP') {
+                inVehicle.set(point.scheduleId, { wheelchair: point.transportNeeds.wheelchair });
+            } else {
+                inVehicle.delete(point.scheduleId);
+            }
+
+            let currentSeats = 0;
+            inVehicle.forEach(({ wheelchair }) => {
+                currentSeats += wheelchair ? 2 : 1;
+            });
+            maxSeats = Math.max(maxSeats, currentSeats);
+        });
 
         const total = selectedVehicle.capacity.totalSeats;
-        const percentage = (used / total) * 100;
-        const overCapacity = used > total;
+        const percentage = (maxSeats / total) * 100;
+        const overCapacity = maxSeats > total;
 
-        return { used, total, percentage, overCapacity };
-    }, [selectedVehicle, route.children]);
+        return { used: maxSeats, total, percentage, overCapacity };
+    }, [selectedVehicle, route.points]);
 
     const validateRoute = useCallback(() => {
         const warnings: string[] = [];
 
         if (!selectedVehicle) return warnings;
 
-        const wheelchairCount = route.children.filter(
-            c => c.transportNeeds.wheelchair
-        ).length;
+        // Check wheelchair spaces
+        const wheelchairSchedules = new Set<string>();
+        route.points.forEach(point => {
+            if (point.transportNeeds.wheelchair) {
+                wheelchairSchedules.add(point.scheduleId);
+            }
+        });
 
-        if (wheelchairCount > selectedVehicle.capacity.wheelchairSpaces) {
+        if (wheelchairSchedules.size > selectedVehicle.capacity.wheelchairSpaces) {
             warnings.push(
-                `Pojazd ma tylko ${selectedVehicle.capacity.wheelchairSpaces} miejsc na wózki, a potrzeba ${wheelchairCount}`
+                `Pojazd ma tylko ${selectedVehicle.capacity.wheelchairSpaces} miejsc na wózki, a potrzeba ${wheelchairSchedules.size}`
             );
         }
 
@@ -130,10 +151,30 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
             warnings.push('Przekroczono pojemność pojazdu!');
         }
 
-        return warnings;
-    }, [selectedVehicle, route.children, calculateCapacity]);
+        // Check for pickup before dropoff
+        const scheduleOrders = new Map<string, { pickupOrder: number; dropoffOrder: number }>();
+        route.points.forEach(point => {
+            if (!scheduleOrders.has(point.scheduleId)) {
+                scheduleOrders.set(point.scheduleId, { pickupOrder: -1, dropoffOrder: -1 });
+            }
+            const orders = scheduleOrders.get(point.scheduleId)!;
+            if (point.type === 'PICKUP') {
+                orders.pickupOrder = point.order;
+            } else {
+                orders.dropoffOrder = point.order;
+            }
+        });
 
-    // Przygotuj punkty trasy dla mapy
+        scheduleOrders.forEach((orders, scheduleId) => {
+            if (orders.pickupOrder > orders.dropoffOrder) {
+                const point = route.points.find(p => p.scheduleId === scheduleId);
+                warnings.push(`${point?.childName}: Dowóz przed odbiorem!`);
+            }
+        });
+
+        return warnings;
+    }, [selectedVehicle, route.points, calculateCapacity]);
+
     const getRoutePoints = useCallback(() => {
         const points: Array<{
             address: string;
@@ -144,35 +185,25 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
             order: number;
         }> = [];
 
-        route.children.forEach((child) => {
-            // Punkt odbioru
-            points.push({
-                address: `${child.schedule.pickupAddress.street} ${child.schedule.pickupAddress.houseNumber}, ${child.schedule.pickupAddress.city}`,
-                lat: 52.2297 + Math.random() * 0.1, // TODO: Zamień na rzeczywiste współrzędne z API
-                lng: 21.0122 + Math.random() * 0.1,
-                type: 'pickup',
-                childName: `${child.firstName} ${child.lastName}`,
-                order: child.pickupOrder * 2 - 1,
-            });
+        const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
 
-            // Punkt dowozu
+        sortedPoints.forEach((point) => {
             points.push({
-                address: `${child.schedule.dropoffAddress.street} ${child.schedule.dropoffAddress.houseNumber}, ${child.schedule.dropoffAddress.city}`,
-                lat: 52.2297 + Math.random() * 0.1, // TODO: Zamień na rzeczywiste współrzędne z API
+                address: `${point.address.street} ${point.address.houseNumber}, ${point.address.city}`,
+                lat: 52.2297 + Math.random() * 0.1,
                 lng: 21.0122 + Math.random() * 0.1,
-                type: 'dropoff',
-                childName: `${child.firstName} ${child.lastName}`,
-                order: child.pickupOrder * 2,
+                type: point.type === 'PICKUP' ? 'pickup' : 'dropoff',
+                childName: point.childName,
+                order: point.order,
             });
         });
 
-        // Sortuj punkty po kolejności
-        return points.sort((a, b) => a.order - b.order);
-    }, [route.children]);
+        return points;
+    }, [route.points]);
 
     const handleShowMap = useCallback(() => {
-        if (route.children.length === 0) {
-            alert('Dodaj dzieci do trasy, aby zobaczyć mapę');
+        if (route.points.length === 0) {
+            alert('Dodaj punkty do trasy, aby zobaczyć mapę');
             return;
         }
         if (!GOOGLE_MAPS_API_KEY) {
@@ -180,7 +211,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
             return;
         }
         setIsMapModalOpen(true);
-    }, [route.children.length]);
+    }, [route.points.length]);
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
@@ -190,31 +221,78 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
     const handleDragLeave = (e: React.DragEvent) => {
         if (e.currentTarget === e.target) {
             setIsDragOver(false);
+            setDragOverIndex(null);
         }
     };
 
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDragOver(false);
+        setDragOverIndex(null);
 
-        if (!draggedChild) return;
-
-        if (draggedFromRoute && draggedFromRoute !== route.id) {
-            onMoveChildBetweenRoutes(draggedFromRoute, route.id, draggedChild.id);
-        } else if (!draggedFromRoute) {
+        if (draggedItem) {
             const capacity = calculateCapacity();
-            const additionalSeats = draggedChild.transportNeeds.wheelchair ? 2 : 1;
+            const additionalSeats = draggedItem.child.transportNeeds.wheelchair ? 2 : 1;
 
             if (selectedVehicle && capacity.used + additionalSeats > selectedVehicle.capacity.totalSeats) {
                 return;
             }
 
-            onAddChild(route.id, draggedChild);
+            onAddPoints(route.id, draggedItem.child, draggedItem.schedule);
+        } else if (draggedPoint && draggedPoint.routeId !== route.id) {
+            onMovePointBetweenRoutes(draggedPoint.routeId, route.id, draggedPoint.point.id);
         }
+    };
+
+    const handlePointDragOver = (e: React.DragEvent, targetIndex: number) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOverIndex(targetIndex);
+    };
+
+    const handlePointDrop = (e: React.DragEvent, targetIndex: number) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDragOverIndex(null);
+
+        if (draggedPoint && draggedPoint.routeId === route.id) {
+            // Reorder within same route
+            const sourceIndex = route.points.findIndex(p => p.id === draggedPoint.point.id);
+            if (sourceIndex === targetIndex) return;
+
+            const newPoints = [...route.points];
+            const [removed] = newPoints.splice(sourceIndex, 1);
+            newPoints.splice(targetIndex, 0, removed);
+
+            onReorderPoints(route.id, newPoints);
+        } else if (draggedPoint && draggedPoint.routeId !== route.id) {
+            // Move from another route
+            onMovePointBetweenRoutes(draggedPoint.routeId, route.id, draggedPoint.point.id);
+        }
+    };
+
+    const handleMovePointUp = (pointId: string) => {
+        const currentIndex = route.points.findIndex(p => p.id === pointId);
+        if (currentIndex <= 0) return;
+
+        const newPoints = [...route.points];
+        [newPoints[currentIndex - 1], newPoints[currentIndex]] = [newPoints[currentIndex], newPoints[currentIndex - 1]];
+        onReorderPoints(route.id, newPoints);
+    };
+
+    const handleMovePointDown = (pointId: string) => {
+        const currentIndex = route.points.findIndex(p => p.id === pointId);
+        if (currentIndex >= route.points.length - 1) return;
+
+        const newPoints = [...route.points];
+        [newPoints[currentIndex], newPoints[currentIndex + 1]] = [newPoints[currentIndex + 1], newPoints[currentIndex]];
+        onReorderPoints(route.id, newPoints);
     };
 
     const capacity = calculateCapacity();
     const warnings = validateRoute();
+    const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+    const uniqueChildren = new Set(route.points.map(p => p.scheduleId)).size;
 
     return (
         <>
@@ -231,7 +309,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                             variant="secondary"
                             size="sm"
                             onClick={handleShowMap}
-                            disabled={route.children.length === 0}
+                            disabled={route.points.length === 0}
                             title="Pokaż trasę na mapie"
                         >
                             <MapIcon size={16} />
@@ -299,13 +377,17 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                 )}
                                 <MetadataItem>
                                     <Users size={13} />
-                                    {route.children.length} {route.children.length === 1 ? 'dziecko' : 'dzieci'}
+                                    {uniqueChildren} {uniqueChildren === 1 ? 'dziecko' : 'dzieci'}
+                                </MetadataItem>
+                                <MetadataItem>
+                                    <MapPin size={13} />
+                                    {route.points.length} {route.points.length === 1 ? 'punkt' : 'punktów'}
                                 </MetadataItem>
                             </MetadataBar>
 
                             <CapacitySection>
                                 <CapacityLabel $warning={capacity.overCapacity}>
-                                    Miejsca: {capacity.used} / {capacity.total}
+                                    Miejsca (max jednocześnie): {capacity.used} / {capacity.total}
                                     {capacity.overCapacity && ' ⚠️'}
                                 </CapacityLabel>
                                 <CapacityBar>
@@ -321,51 +403,59 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
 
                     <ChildrenSection>
                         <SectionTitle>
-                            Dzieci ({route.children.length})
+                            Punkty trasy ({route.points.length})
                         </SectionTitle>
                         <DropZone
                             onDragOver={handleDragOver}
                             onDragLeave={handleDragLeave}
                             onDrop={handleDrop}
                             $isDragOver={isDragOver}
-                            $isEmpty={route.children.length === 0}
+                            $isEmpty={route.points.length === 0}
                         >
-                            {route.children.length === 0 ? (
+                            {route.points.length === 0 ? (
                                 <EmptyDropZone>
                                     <Users size={28} />
                                     <div>Przeciągnij dzieci tutaj</div>
                                 </EmptyDropZone>
                             ) : (
-                                route.children.map((child) => (
+                                sortedPoints.map((point, idx) => (
                                     <RouteChildCard
-                                        key={child.id}
+                                        key={point.id}
                                         draggable
-                                        onDragStart={() => onDragStart(child, route.id)}
+                                        onDragStart={() => onDragStartPoint(route.id, point)}
                                         onDragEnd={onDragEnd}
+                                        onDragOver={(e) => handlePointDragOver(e, idx)}
+                                        onDrop={(e) => handlePointDrop(e, idx)}
+                                        style={{
+                                            borderTop: dragOverIndex === idx ? '2px solid #3b82f6' : undefined,
+                                        }}
                                     >
-                                        <OrderBadge>{child.pickupOrder}</OrderBadge>
+                                        <OrderBadge>{point.order}</OrderBadge>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#64748b' }}>
+                                            <GripVertical size={16} />
+                                        </div>
                                         <ChildInfo>
                                             <ChildName>
-                                                {child.firstName} {child.lastName}
+                                                {point.type === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}: {point.childName}
                                             </ChildName>
                                             <ChildDetails>
                                                 <div>
                                                     <Clock size={11} style={{ display: 'inline', marginRight: 4 }} />
-                                                    {child.schedule.pickupTime} - {child.schedule.dropoffTime}
+                                                    {point.estimatedTime}
                                                 </div>
                                                 <div>
                                                     <MapPin size={11} style={{ display: 'inline', marginRight: 4 }} />
-                                                    {child.schedule.pickupAddress.label} → {child.schedule.dropoffAddress.label}
+                                                    {point.address.label} - {point.address.street} {point.address.houseNumber}
+                                                    {point.address.apartmentNumber && `/${point.address.apartmentNumber}`}
                                                 </div>
-                                                {(child.transportNeeds.wheelchair ||
-                                                    child.transportNeeds.specialSeat) && (
+                                                {(point.transportNeeds.wheelchair || point.transportNeeds.specialSeat) && (
                                                     <div style={{ display: 'flex', gap: '3px', marginTop: '3px' }}>
-                                                        {child.transportNeeds.wheelchair && (
+                                                        {point.transportNeeds.wheelchair && (
                                                             <NeedBadge $variant="wheelchair">
                                                                 Wózek (2 miejsca)
                                                             </NeedBadge>
                                                         )}
-                                                        {child.transportNeeds.specialSeat && (
+                                                        {point.transportNeeds.specialSeat && (
                                                             <NeedBadge $variant="seat">Fotelik</NeedBadge>
                                                         )}
                                                     </div>
@@ -376,7 +466,27 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                                             <RemoveChildButton
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    onRemoveChild(route.id, child.id);
+                                                    handleMovePointUp(point.id);
+                                                }}
+                                                disabled={idx === 0}
+                                                title="Przesuń w górę"
+                                            >
+                                                <ArrowUp size={14} />
+                                            </RemoveChildButton>
+                                            <RemoveChildButton
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleMovePointDown(point.id);
+                                                }}
+                                                disabled={idx === sortedPoints.length - 1}
+                                                title="Przesuń w dół"
+                                            >
+                                                <ArrowDown size={14} />
+                                            </RemoveChildButton>
+                                            <RemoveChildButton
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onRemovePoint(route.id, point.id);
                                                 }}
                                                 title="Usuń z trasy"
                                             >

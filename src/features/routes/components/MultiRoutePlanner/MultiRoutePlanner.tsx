@@ -8,7 +8,7 @@ import { Input } from '@/shared/ui/Input';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
-import { AvailableChild } from '../../types';
+import { AvailableChild, ChildSchedule, RoutePoint } from '../../types';
 import { RouteBuilderCard } from './RouteBuilderCard';
 import { ChildrenPool } from './ChildrenPool';
 import {
@@ -41,7 +41,12 @@ export interface RouteBuilder {
     routeName: string;
     vehicleId: string;
     driverId: string;
-    children: Array<AvailableChild & { pickupOrder: number }>;
+    points: RoutePoint[];
+}
+
+interface ChildScheduleItem {
+    child: AvailableChild;
+    schedule: ChildSchedule;
 }
 
 export const MultiRoutePlanner: React.FC = () => {
@@ -49,8 +54,8 @@ export const MultiRoutePlanner: React.FC = () => {
         new Date().toISOString().split('T')[0]
     );
     const [routes, setRoutes] = useState<RouteBuilder[]>([]);
-    const [draggedChild, setDraggedChild] = useState<AvailableChild | null>(null);
-    const [draggedFromRoute, setDraggedFromRoute] = useState<string | null>(null);
+    const [draggedItem, setDraggedItem] = useState<{ child: AvailableChild; schedule: ChildSchedule } | null>(null);
+    const [draggedPoint, setDraggedPoint] = useState<{ routeId: string; point: RoutePoint } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     const { data: availableChildren, isLoading: isLoadingChildren } = useAvailableChildren(
@@ -60,14 +65,23 @@ export const MultiRoutePlanner: React.FC = () => {
     const { data: driversData, isLoading: isLoadingDrivers } = useAvailableDrivers();
     const { data: vehiclesData, isLoading: isLoadingVehicles } = useAvailableVehicles();
 
-    // Calculate which children are not assigned to any route
-    const unassignedChildren = useMemo(() => {
+    // Backend już zwraca płaską strukturę: każdy element = para (child, schedule)
+    const childScheduleItems = useMemo<ChildScheduleItem[]>(() => {
         if (!availableChildren) return [];
-        const assignedIds = new Set(
-            routes.flatMap(route => route.children.map(c => c.id))
+
+        return availableChildren.map(item => ({
+            child: item,
+            schedule: item.schedule // schedule to już pojedynczy obiekt
+        }));
+    }, [availableChildren]);
+
+    // Calculate which child-schedule combinations are not assigned
+    const unassignedItems = useMemo(() => {
+        const assignedScheduleIds = new Set(
+            routes.flatMap(route => route.points.map(p => p.scheduleId))
         );
-        return availableChildren.filter(child => !assignedIds.has(child.id));
-    }, [availableChildren, routes]);
+        return childScheduleItems.filter(item => !assignedScheduleIds.has(item.schedule.id));
+    }, [childScheduleItems, routes]);
 
     const handleAddRoute = useCallback(() => {
         const newRoute: RouteBuilder = {
@@ -75,7 +89,7 @@ export const MultiRoutePlanner: React.FC = () => {
             routeName: '',
             vehicleId: '',
             driverId: '',
-            children: [],
+            points: [],
         };
         setRoutes(prev => [...prev, newRoute]);
     }, []);
@@ -92,65 +106,131 @@ export const MultiRoutePlanner: React.FC = () => {
         );
     }, []);
 
-    const handleAddChildToRoute = useCallback((routeId: string, child: AvailableChild) => {
+    const handleAddPointsToRoute = useCallback((routeId: string, child: AvailableChild, schedule: ChildSchedule) => {
         setRoutes(prev =>
             prev.map(route => {
                 if (route.id !== routeId) return route;
 
-                // Check if child is already in this route
-                if (route.children.find(c => c.id === child.id)) return route;
+                // Check if this schedule is already in this route
+                if (route.points.find(p => p.scheduleId === schedule.id)) return route;
 
-                const newChild = {
-                    ...child,
-                    pickupOrder: route.children.length + 1,
+                const currentMaxOrder = route.points.length > 0
+                    ? Math.max(...route.points.map(p => p.order))
+                    : 0;
+
+                const pickupPoint: RoutePoint = {
+                    id: `point-${Date.now()}-pickup`,
+                    type: 'PICKUP',
+                    childId: child.id,
+                    scheduleId: schedule.id,
+                    order: currentMaxOrder + 1,
+                    address: schedule.pickupAddress,
+                    estimatedTime: schedule.pickupTime,
+                    childName: `${child.firstName} ${child.lastName}`,
+                    childAge: child.age,
+                    guardianName: `${child.guardian.firstName} ${child.guardian.lastName}`,
+                    guardianPhone: child.guardian.phone,
+                    transportNeeds: child.transportNeeds,
+                };
+
+                const dropoffPoint: RoutePoint = {
+                    id: `point-${Date.now()}-dropoff`,
+                    type: 'DROPOFF',
+                    childId: child.id,
+                    scheduleId: schedule.id,
+                    order: currentMaxOrder + 2,
+                    address: schedule.dropoffAddress,
+                    estimatedTime: schedule.dropoffTime,
+                    childName: `${child.firstName} ${child.lastName}`,
+                    childAge: child.age,
+                    guardianName: `${child.guardian.firstName} ${child.guardian.lastName}`,
+                    guardianPhone: child.guardian.phone,
+                    transportNeeds: child.transportNeeds,
                 };
 
                 return {
                     ...route,
-                    children: [...route.children, newChild],
+                    points: [...route.points, pickupPoint, dropoffPoint],
                 };
             })
         );
     }, []);
 
-    const handleRemoveChildFromRoute = useCallback((routeId: string, childId: string) => {
+    const handleRemovePointFromRoute = useCallback((routeId: string, pointId: string) => {
         setRoutes(prev =>
             prev.map(route => {
                 if (route.id !== routeId) return route;
 
-                const updatedChildren = route.children
-                    .filter(c => c.id !== childId)
-                    .map((c, index) => ({ ...c, pickupOrder: index + 1 }));
+                const pointToRemove = route.points.find(p => p.id === pointId);
+                if (!pointToRemove) return route;
 
-                return { ...route, children: updatedChildren };
+                // Remove both pickup and dropoff points for this schedule
+                const updatedPoints = route.points
+                    .filter(p => p.scheduleId !== pointToRemove.scheduleId)
+                    .map((p, index) => ({ ...p, order: index + 1 }));
+
+                return { ...route, points: updatedPoints };
             })
         );
     }, []);
 
-    const handleMoveChildBetweenRoutes = useCallback(
-        (fromRouteId: string, toRouteId: string, childId: string) => {
-            const fromRoute = routes.find(r => r.id === fromRouteId);
-            const child = fromRoute?.children.find(c => c.id === childId);
+    const handleReorderPoints = useCallback((routeId: string, points: RoutePoint[]) => {
+        setRoutes(prev =>
+            prev.map(route => {
+                if (route.id !== routeId) return route;
+                return { ...route, points: points.map((p, index) => ({ ...p, order: index + 1 })) };
+            })
+        );
+    }, []);
 
-            if (!child) return;
+    const handleMovePointBetweenRoutes = useCallback(
+        (fromRouteId: string, toRouteId: string, pointId: string) => {
+            const fromRoute = routes.find(r => r.id === fromRouteId);
+            const pointToMove = fromRoute?.points.find(p => p.id === pointId);
+
+            if (!pointToMove) return;
+
+            // Get both points for this schedule
+            const schedulePoints = fromRoute!.points.filter(p => p.scheduleId === pointToMove.scheduleId);
 
             // Remove from source route
-            handleRemoveChildFromRoute(fromRouteId, childId);
-
-            // Add to target route
-            handleAddChildToRoute(toRouteId, child);
+            setRoutes(prev =>
+                prev.map(route => {
+                    if (route.id === fromRouteId) {
+                        const updatedPoints = route.points
+                            .filter(p => p.scheduleId !== pointToMove.scheduleId)
+                            .map((p, index) => ({ ...p, order: index + 1 }));
+                        return { ...route, points: updatedPoints };
+                    }
+                    if (route.id === toRouteId) {
+                        const currentMaxOrder = route.points.length > 0
+                            ? Math.max(...route.points.map(p => p.order))
+                            : 0;
+                        const newPoints = schedulePoints.map((p, index) => ({
+                            ...p,
+                            id: `point-${Date.now()}-${p.type.toLowerCase()}-${index}`,
+                            order: currentMaxOrder + index + 1,
+                        }));
+                        return { ...route, points: [...route.points, ...newPoints] };
+                    }
+                    return route;
+                })
+            );
         },
-        [routes, handleRemoveChildFromRoute, handleAddChildToRoute]
+        [routes]
     );
 
-    const handleDragStart = useCallback((child: AvailableChild, fromRouteId?: string) => {
-        setDraggedChild(child);
-        setDraggedFromRoute(fromRouteId || null);
+    const handleDragStart = useCallback((child: AvailableChild, schedule: ChildSchedule) => {
+        setDraggedItem({ child, schedule });
+    }, []);
+
+    const handleDragStartPoint = useCallback((routeId: string, point: RoutePoint) => {
+        setDraggedPoint({ routeId, point });
     }, []);
 
     const handleDragEnd = useCallback(() => {
-        setDraggedChild(null);
-        setDraggedFromRoute(null);
+        setDraggedItem(null);
+        setDraggedPoint(null);
     }, []);
 
     const validateRoutes = useCallback(() => {
@@ -166,29 +246,67 @@ export const MultiRoutePlanner: React.FC = () => {
             if (!route.driverId) {
                 errors.push(`Trasa ${index + 1}: Nie wybrano kierowcy`);
             }
-            if (route.children.length === 0) {
-                errors.push(`Trasa ${index + 1}: Brak przypisanych dzieci`);
+            if (route.points.length === 0) {
+                errors.push(`Trasa ${index + 1}: Brak przypisanych punktów`);
             }
 
             // Check vehicle capacity
             if (route.vehicleId && vehiclesData) {
                 const vehicle = vehiclesData.content.find(v => v.id === route.vehicleId);
                 if (vehicle) {
-                    const usedSeats = route.children.reduce((sum, child) => {
-                        return sum + (child.transportNeeds.wheelchair ? 2 : 1);
-                    }, 0);
+                    // Calculate max concurrent children
+                    let maxConcurrent = 0;
+                    const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+                    let currentInVehicle = 0;
+                    const inVehicleSchedules = new Set<string>();
 
-                    if (usedSeats > vehicle.capacity.totalSeats) {
-                        errors.push(`Trasa ${index + 1}: Przekroczono pojemność pojazdu`);
+                    sortedPoints.forEach(point => {
+                        if (point.type === 'PICKUP') {
+                            inVehicleSchedules.add(point.scheduleId);
+                        } else {
+                            inVehicleSchedules.delete(point.scheduleId);
+                        }
+                        currentInVehicle = inVehicleSchedules.size;
+                        maxConcurrent = Math.max(maxConcurrent, currentInVehicle);
+                    });
+
+                    // Calculate seats needed considering wheelchairs
+                    let maxSeatsNeeded = 0;
+                    const scheduleSeats = new Map<string, number>();
+
+                    route.points.forEach(point => {
+                        if (!scheduleSeats.has(point.scheduleId)) {
+                            const seats = point.transportNeeds.wheelchair ? 2 : 1;
+                            scheduleSeats.set(point.scheduleId, seats);
+                        }
+                    });
+
+                    inVehicleSchedules.clear();
+                    sortedPoints.forEach(point => {
+                        if (point.type === 'PICKUP') {
+                            inVehicleSchedules.add(point.scheduleId);
+                        } else {
+                            inVehicleSchedules.delete(point.scheduleId);
+                        }
+
+                        let currentSeats = 0;
+                        inVehicleSchedules.forEach(schedId => {
+                            currentSeats += scheduleSeats.get(schedId) || 1;
+                        });
+                        maxSeatsNeeded = Math.max(maxSeatsNeeded, currentSeats);
+                    });
+
+                    if (maxSeatsNeeded > vehicle.capacity.totalSeats) {
+                        errors.push(`Trasa ${index + 1}: Przekroczono pojemność pojazdu (${maxSeatsNeeded}/${vehicle.capacity.totalSeats} miejsc)`);
                     }
 
-                    const wheelchairCount = route.children.filter(
-                        c => c.transportNeeds.wheelchair
-                    ).length;
+                    // Check wheelchair spaces
+                    const wheelchairPoints = route.points.filter(p => p.transportNeeds.wheelchair);
+                    const uniqueWheelchairSchedules = new Set(wheelchairPoints.map(p => p.scheduleId));
 
-                    if (wheelchairCount > vehicle.capacity.wheelchairSpaces) {
+                    if (uniqueWheelchairSchedules.size > vehicle.capacity.wheelchairSpaces) {
                         errors.push(
-                            `Trasa ${index + 1}: Za dużo dzieci wymagających wózków (${wheelchairCount}/${vehicle.capacity.wheelchairSpaces})`
+                            `Trasa ${index + 1}: Za dużo dzieci wymagających wózków (${uniqueWheelchairSchedules.size}/${vehicle.capacity.wheelchairSpaces})`
                         );
                     }
                 }
@@ -214,35 +332,26 @@ export const MultiRoutePlanner: React.FC = () => {
         setIsSaving(true);
 
         try {
-            // Import the hook inline to avoid circular dependencies
             const { routesApi } = await import('../../api/routesApi');
 
             const savePromises = routes.map(async (route) => {
-                const earliestPickup = route.children.reduce((earliest, child) => {
-                    return child.schedule.pickupTime < earliest
-                        ? child.schedule.pickupTime
-                        : earliest;
-                }, route.children[0].schedule.pickupTime);
-
-                const latestDropoff = route.children.reduce((latest, child) => {
-                    return child.schedule.dropoffTime > latest
-                        ? child.schedule.dropoffTime
-                        : latest;
-                }, route.children[0].schedule.dropoffTime);
+                const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+                const earliestTime = sortedPoints[0]?.estimatedTime || '08:00';
+                const latestTime = sortedPoints[sortedPoints.length - 1]?.estimatedTime || '16:00';
 
                 return routesApi.create({
                     routeName: route.routeName.trim(),
                     date: selectedDate,
                     driverId: route.driverId,
                     vehicleId: route.vehicleId,
-                    estimatedStartTime: earliestPickup,
-                    estimatedEndTime: latestDropoff,
-                    children: route.children.map(child => ({
-                        childId: child.id,
-                        scheduleId: child.schedule.id,
-                        pickupOrder: child.pickupOrder,
-                        estimatedPickupTime: child.schedule.pickupTime,
-                        estimatedDropoffTime: child.schedule.dropoffTime,
+                    estimatedStartTime: earliestTime,
+                    estimatedEndTime: latestTime,
+                    points: route.points.map(point => ({
+                        type: point.type,
+                        childId: point.childId,
+                        scheduleId: point.scheduleId,
+                        order: point.order,
+                        estimatedTime: point.estimatedTime,
                     })),
                 });
             });
@@ -251,10 +360,8 @@ export const MultiRoutePlanner: React.FC = () => {
 
             toast.success(`Pomyślnie utworzono ${routes.length} ${routes.length === 1 ? 'trasę' : 'tras'}`);
 
-            // Reset state
             setRoutes([]);
 
-            // Redirect after short delay
             setTimeout(() => {
                 window.location.href = '/routes';
             }, 1500);
@@ -267,12 +374,13 @@ export const MultiRoutePlanner: React.FC = () => {
     };
 
     const stats = useMemo(() => {
-        const totalChildren = routes.reduce((sum, route) => sum + route.children.length, 0);
+        const uniqueSchedules = new Set(routes.flatMap(route => route.points.map(p => p.scheduleId)));
+        const totalChildren = uniqueSchedules.size;
         const totalRoutes = routes.length;
-        const unassigned = unassignedChildren.length;
+        const unassigned = unassignedItems.length;
 
         return { totalChildren, totalRoutes, unassigned };
-    }, [routes, unassignedChildren]);
+    }, [routes, unassignedItems]);
 
     if (isLoadingChildren || isLoadingDrivers || isLoadingVehicles) {
         return <LoadingSpinner />;
@@ -314,7 +422,7 @@ export const MultiRoutePlanner: React.FC = () => {
                             value={selectedDate}
                             onChange={(e) => {
                                 setSelectedDate(e.target.value);
-                                setRoutes([]); // Clear routes when date changes
+                                setRoutes([]);
                             }}
                             min={new Date().toISOString().split('T')[0]}
                         />
@@ -336,7 +444,7 @@ export const MultiRoutePlanner: React.FC = () => {
                             </StatItem>
                             <StatItem>
                                 <StatValue>{stats.totalChildren}</StatValue>
-                                <StatLabel>Przypisanych</StatLabel>
+                                <StatLabel>Dzieci</StatLabel>
                             </StatItem>
                             <StatItem $warning={stats.unassigned > 0}>
                                 <StatValue>{stats.unassigned}</StatValue>
@@ -348,7 +456,7 @@ export const MultiRoutePlanner: React.FC = () => {
 
                 <ChildrenPoolSection>
                     <ChildrenPool
-                        children={unassignedChildren}
+                        items={unassignedItems}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                     />
@@ -379,14 +487,15 @@ export const MultiRoutePlanner: React.FC = () => {
                                     index={index}
                                     drivers={driversData?.content || []}
                                     vehicles={vehiclesData?.content || []}
-                                    draggedChild={draggedChild}
-                                    draggedFromRoute={draggedFromRoute}
+                                    draggedItem={draggedItem}
+                                    draggedPoint={draggedPoint}
                                     onUpdate={handleUpdateRoute}
                                     onRemove={handleRemoveRoute}
-                                    onAddChild={handleAddChildToRoute}
-                                    onRemoveChild={handleRemoveChildFromRoute}
-                                    onMoveChildBetweenRoutes={handleMoveChildBetweenRoutes}
-                                    onDragStart={handleDragStart}
+                                    onAddPoints={handleAddPointsToRoute}
+                                    onRemovePoint={handleRemovePointFromRoute}
+                                    onReorderPoints={handleReorderPoints}
+                                    onMovePointBetweenRoutes={handleMovePointBetweenRoutes}
+                                    onDragStartPoint={handleDragStartPoint}
                                     onDragEnd={handleDragEnd}
                                 />
                             ))}

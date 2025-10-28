@@ -1,6 +1,6 @@
 import React from 'react';
 import { Users, Clock, MapPin } from 'lucide-react';
-import { AvailableChild } from '../../types';
+import { AvailableChild, ChildSchedule } from '../../types';
 import {
     PoolContainer,
     PoolHeader,
@@ -12,7 +12,7 @@ import {
     ChildCardContent,
     ChildName,
     ChildAge,
-    ChildSchedule,
+    ChildSchedule as ChildScheduleStyle,
     ScheduleItem,
     NeedsRow,
     NeedBadge,
@@ -22,23 +22,23 @@ import {
 } from './ChildrenPool.styles';
 
 interface ChildrenPoolProps {
-    children: AvailableChild[];
-    onDragStart: (child: AvailableChild) => void;
+    items: Array<{ child: AvailableChild; schedule: ChildSchedule }>;
+    onDragStart: (child: AvailableChild, schedule: ChildSchedule) => void;
     onDragEnd: () => void;
 }
 
 export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
-                                                              children,
+                                                              items,
                                                               onDragStart,
                                                               onDragEnd,
                                                           }) => {
-    if (children.length === 0) {
+    if (items.length === 0) {
         return (
             <PoolContainer>
                 <PoolHeader>
                     <PoolTitle>
                         <Users size={16} />
-                        Dostępne dzieci
+                        Dostępne harmonogramy
                     </PoolTitle>
                     <PoolCount $isEmpty>0</PoolCount>
                 </PoolHeader>
@@ -48,7 +48,7 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
                             <Users size={24} />
                         </EmptyIcon>
                         <EmptyText>
-                            Wszystkie dzieci zostały już przypisane do tras
+                            Wszystkie harmonogramy zostały już przypisane do tras
                         </EmptyText>
                     </EmptyPool>
                 </PoolContent>
@@ -61,17 +61,17 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
             <PoolHeader>
                 <PoolTitle>
                     <Users size={16} />
-                    Dostępne dzieci
+                    Dostępne harmonogramy
                 </PoolTitle>
-                <PoolCount>{children.length}</PoolCount>
+                <PoolCount>{items.length}</PoolCount>
             </PoolHeader>
             <PoolContent>
                 <ChildrenGrid>
-                    {children.map((child) => (
+                    {items.map(({ child, schedule }, idx) => (
                         <ChildCard
-                            key={child.id}
+                            key={`${child.id}-${schedule.id}-${idx}`}
                             draggable
-                            onDragStart={() => onDragStart(child)}
+                            onDragStart={() => onDragStart(child, schedule)}
                             onDragEnd={onDragEnd}
                             title="Przeciągnij do trasy"
                         >
@@ -80,16 +80,29 @@ export const ChildrenPool: React.FC<ChildrenPoolProps> = ({
                                     {child.firstName} {child.lastName}
                                 </ChildName>
                                 <ChildAge>{child.age} lat</ChildAge>
-                                <ChildSchedule>
+                                <div style={{
+                                    fontSize: '0.6875rem',
+                                    fontWeight: 600,
+                                    color: '#7c3aed',
+                                    marginTop: '0.25rem',
+                                    marginBottom: '0.25rem'
+                                }}>
+                                    📅 {schedule.name}
+                                </div>
+                                <ChildScheduleStyle>
                                     <ScheduleItem>
                                         <Clock size={11} />
-                                        {child.schedule.pickupTime} - {child.schedule.dropoffTime}
+                                        {schedule.pickupTime} - {schedule.dropoffTime}
                                     </ScheduleItem>
                                     <ScheduleItem>
                                         <MapPin size={11} />
-                                        {child.schedule.pickupAddress.label}
+                                        {schedule.pickupAddress.label}
                                     </ScheduleItem>
-                                </ChildSchedule>
+                                    <ScheduleItem>
+                                        <MapPin size={11} />
+                                        → {schedule.dropoffAddress.label}
+                                    </ScheduleItem>
+                                </ChildScheduleStyle>
                                 {(child.transportNeeds.wheelchair ||
                                     child.transportNeeds.specialSeat ||
                                     child.transportNeeds.safetyBelt) && (
