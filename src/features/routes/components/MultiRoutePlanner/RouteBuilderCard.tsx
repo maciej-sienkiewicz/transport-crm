@@ -74,7 +74,7 @@ interface RouteBuilderCardProps {
     onDragEnd: () => void;
 }
 
-const GOOGLE_MAPS_API_KEY = '';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyAr0qHze3moiMPHo-cwv171b8luH-anyXA';
 
 // Helper function to check if two addresses are the same
 const isSameAddress = (addr1: RoutePoint['address'], addr2: RoutePoint['address']): boolean => {
@@ -110,7 +110,7 @@ const wouldViolatePickupDropoffOrder = (points: RoutePoint[], sourceIndex: numbe
     });
 
     // Check if any DROPOFF comes before PICKUP
-    for (const [scheduleId, orders] of scheduleMap) {
+    for (const [, orders] of scheduleMap) {
         if (orders.pickupOrder !== -1 && orders.dropoffOrder !== -1) {
             if (orders.dropoffOrder < orders.pickupOrder) {
                 return true;
@@ -246,23 +246,29 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
     const getRoutePoints = useCallback(() => {
         const points: Array<{
             address: string;
-            lat: number;
-            lng: number;
+            lat: number | null;
+            lng: number | null;
             type: 'pickup' | 'dropoff';
             childName: string;
             order: number;
+            hasCoordinates: boolean;
         }> = [];
 
         const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
 
         sortedPoints.forEach((point) => {
+            const lat = point.address.latitude;
+            const lng = point.address.longitude;
+            const hasCoordinates = lat != null && lng != null;
+
             points.push({
                 address: `${point.address.street} ${point.address.houseNumber}, ${point.address.city}`,
-                lat: 52.2297 + Math.random() * 0.1,
-                lng: 21.0122 + Math.random() * 0.1,
+                lat: hasCoordinates ? lat : null,
+                lng: hasCoordinates ? lng : null,
                 type: point.type === 'PICKUP' ? 'pickup' : 'dropoff',
                 childName: point.childName,
                 order: point.order,
+                hasCoordinates,
             });
         });
 
@@ -271,15 +277,25 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
 
     const handleShowMap = useCallback(() => {
         if (route.points.length === 0) {
-            alert('Dodaj punkty do trasy, aby zobaczyć mapę');
+            toast.error('Dodaj punkty do trasy, aby zobaczyć mapę');
             return;
         }
+
+        const pointsWithCoords = route.points.filter(p =>
+            p.address.latitude != null && p.address.longitude != null
+        );
+
+        if (pointsWithCoords.length < 2) {
+            toast.error('Co najmniej 2 punkty muszą mieć współrzędne GPS, aby wyświetlić trasę na mapie');
+            return;
+        }
+
         if (!GOOGLE_MAPS_API_KEY) {
-            alert('Brak klucza API Google Maps. Skonfiguruj REACT_APP_GOOGLE_MAPS_API_KEY');
+            toast.error('Brak klucza API Google Maps. Skonfiguruj REACT_APP_GOOGLE_MAPS_API_KEY');
             return;
         }
         setIsMapModalOpen(true);
-    }, [route.points.length]);
+    }, [route.points]);
 
     const handleDragOver = useCallback((e: React.DragEvent) => {
         e.preventDefault();

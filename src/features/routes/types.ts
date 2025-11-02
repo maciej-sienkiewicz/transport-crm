@@ -25,6 +25,8 @@ export interface RoutePoint {
         apartmentNumber?: string;
         postalCode: string;
         city: string;
+        latitude?: number | null;
+        longitude?: number | null;
     };
     estimatedTime: string;
     childName: string;
@@ -68,6 +70,8 @@ export interface RouteChildDetail {
         apartmentNumber?: string;
         postalCode: string;
         city: string;
+        latitude?: number | null;
+        longitude?: number | null;
     };
     dropoffAddress: {
         label: string;
@@ -76,6 +80,8 @@ export interface RouteChildDetail {
         apartmentNumber?: string;
         postalCode: string;
         city: string;
+        latitude?: number | null;
+        longitude?: number | null;
     };
     estimatedPickupTime: string;
     estimatedDropoffTime: string;
@@ -155,6 +161,8 @@ export interface ChildSchedule {
         apartmentNumber?: string;
         postalCode: string;
         city: string;
+        latitude?: number | null;
+        longitude?: number | null;
     };
     dropoffAddress: {
         label: string;
@@ -163,6 +171,8 @@ export interface ChildSchedule {
         apartmentNumber?: string;
         postalCode: string;
         city: string;
+        latitude?: number | null;
+        longitude?: number | null;
     };
 }
 
@@ -177,7 +187,6 @@ export interface AvailableChild {
         specialSeat: boolean;
         safetyBelt: boolean;
     };
-    // Backend zwraca płaską strukturę: każdy element array to jedno dziecko + jeden harmonogram
     schedule: ChildSchedule;
     guardian: {
         firstName: string;

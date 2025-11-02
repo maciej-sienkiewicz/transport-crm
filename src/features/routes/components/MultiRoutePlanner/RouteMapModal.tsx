@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, MapPin, Navigation } from 'lucide-react';
+import { X, MapPin, Navigation, AlertCircle } from 'lucide-react';
 import styled from 'styled-components';
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 
 interface RoutePoint {
     address: string;
-    lat: number;
-    lng: number;
+    lat: number | null;
+    lng: number | null;
     type: 'pickup' | 'dropoff';
     childName: string;
     order: number;
+    hasCoordinates: boolean;
 }
 
 interface RouteMapModalProps {
@@ -141,26 +142,33 @@ const Sidebar = styled.div`
     }
 `;
 
-const PointCard = styled.div<{ $type: 'pickup' | 'dropoff' }>`
+const PointCard = styled.div<{ $type: 'pickup' | 'dropoff'; $noCoordinates?: boolean }>`
     padding: ${({ theme }) => theme.spacing.md};
-    background: ${({ $type, theme }) =>
-    $type === 'pickup' ? theme.colors.primary[50] : theme.colors.success[50]};
+    background: ${({ $type, $noCoordinates, theme }) => {
+    if ($noCoordinates) return theme.colors.slate[50];
+    return $type === 'pickup' ? theme.colors.primary[50] : theme.colors.success[50];
+}};
     border: 1px solid
-        ${({ $type, theme }) =>
-    $type === 'pickup' ? theme.colors.primary[200] : theme.colors.success[200]};
+        ${({ $type, $noCoordinates, theme }) => {
+    if ($noCoordinates) return theme.colors.slate[200];
+    return $type === 'pickup' ? theme.colors.primary[200] : theme.colors.success[200];
+}};
     border-radius: ${({ theme }) => theme.borderRadius.lg};
     display: flex;
     gap: ${({ theme }) => theme.spacing.sm};
+    opacity: ${({ $noCoordinates }) => $noCoordinates ? 0.6 : 1};
 `;
 
-const PointOrder = styled.div<{ $type: 'pickup' | 'dropoff' }>`
+const PointOrder = styled.div<{ $type: 'pickup' | 'dropoff'; $noCoordinates?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     width: 32px;
     height: 32px;
-    background: ${({ $type, theme }) =>
-    $type === 'pickup' ? theme.colors.primary[600] : theme.colors.success[600]};
+    background: ${({ $type, $noCoordinates, theme }) => {
+    if ($noCoordinates) return theme.colors.slate[400];
+    return $type === 'pickup' ? theme.colors.primary[600] : theme.colors.success[600];
+}};
     color: white;
     border-radius: ${({ theme }) => theme.borderRadius.full};
     font-size: 0.875rem;
@@ -198,6 +206,18 @@ const PointType = styled.div<{ $type: 'pickup' | 'dropoff' }>`
     margin-top: ${({ theme }) => theme.spacing.xs};
 `;
 
+const NoCoordinatesWarning = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    color: ${({ theme }) => theme.colors.warning[700]};
+    background: ${({ theme }) => theme.colors.warning[100]};
+    padding: 3px 6px;
+    border-radius: ${({ theme }) => theme.borderRadius.sm};
+    margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
 const RouteStats = styled.div`
     padding: ${({ theme }) => theme.spacing.md};
     background: ${({ theme }) => theme.colors.slate[50]};
@@ -226,6 +246,18 @@ const StatValue = styled.span`
     color: ${({ theme }) => theme.colors.slate[900]};
 `;
 
+const WarningBanner = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.sm};
+    padding: ${({ theme }) => theme.spacing.md};
+    background: ${({ theme }) => theme.colors.warning[50]};
+    border: 1px solid ${({ theme }) => theme.colors.warning[200]};
+    border-radius: ${({ theme }) => theme.borderRadius.lg};
+    color: ${({ theme }) => theme.colors.warning[700]};
+    font-size: 0.875rem;
+`;
+
 // Komponent do rysowania trasy
 const DirectionsRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
     const map = useMap();
@@ -233,13 +265,16 @@ const DirectionsRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
     const [, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
 
     useEffect(() => {
-        if (!map || points.length < 2) return;
+        // Filtruj tylko punkty ze współrzędnymi
+        const validPoints = points.filter(p => p.hasCoordinates && p.lat !== null && p.lng !== null);
+
+        if (!map || validPoints.length < 2) return;
 
         // Utwórz DirectionsService i DirectionsRenderer
         const directionsService = new google.maps.DirectionsService();
         const renderer = new google.maps.DirectionsRenderer({
             map,
-            suppressMarkers: false, // Pokaż markery
+            suppressMarkers: false,
             polylineOptions: {
                 strokeColor: '#2563eb',
                 strokeWeight: 5,
@@ -250,16 +285,19 @@ const DirectionsRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
         setDirectionsRenderer(renderer);
 
         // Przygotuj waypoints (wszystkie punkty poza pierwszym i ostatnim)
-        const waypoints = points.slice(1, -1).map((point) => ({
-            location: new google.maps.LatLng(point.lat, point.lng),
+        const waypoints = validPoints.slice(1, -1).map((point) => ({
+            location: new google.maps.LatLng(point.lat!, point.lng!),
             stopover: true,
         }));
 
         // Wyznacz trasę
         directionsService.route(
             {
-                origin: new google.maps.LatLng(points[0].lat, points[0].lng),
-                destination: new google.maps.LatLng(points[points.length - 1].lat, points[points.length - 1].lng),
+                origin: new google.maps.LatLng(validPoints[0].lat!, validPoints[0].lng!),
+                destination: new google.maps.LatLng(
+                    validPoints[validPoints.length - 1].lat!,
+                    validPoints[validPoints.length - 1].lng!
+                ),
                 waypoints,
                 travelMode: google.maps.TravelMode.DRIVING,
                 optimizeWaypoints: false, // Zachowaj kolejność
@@ -305,19 +343,22 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
     const [center, setCenter] = useState({ lat: 52.2297, lng: 21.0122 }); // Domyślnie Warszawa
     const [zoom, setZoom] = useState(12);
 
+    const validPoints = points.filter(p => p.hasCoordinates && p.lat !== null && p.lng !== null);
+    const missingCoordinatesCount = points.length - validPoints.length;
+
     useEffect(() => {
-        if (points.length > 0) {
-            // Wyśrodkuj mapę na pierwszym punkcie
-            setCenter({ lat: points[0].lat, lng: points[0].lng });
+        if (validPoints.length > 0) {
+            // Wyśrodkuj mapę na pierwszym punkcie z współrzędnymi
+            setCenter({ lat: validPoints[0].lat!, lng: validPoints[0].lng! });
 
             // Dostosuj zoom w zależności od ilości punktów
-            if (points.length > 5) {
+            if (validPoints.length > 5) {
                 setZoom(11);
             } else {
                 setZoom(12);
             }
         }
-    }, [points]);
+    }, [validPoints]);
 
     const handleOverlayClick = useCallback(
         (e: React.MouseEvent) => {
@@ -346,22 +387,57 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
 
                     <ModalBody>
                         <MapContainer>
-                            <Map
-                                defaultCenter={center}
-                                defaultZoom={zoom}
-                                gestureHandling="greedy"
-                                disableDefaultUI={false}
-                                mapId="route-map" // Wymagane dla zaawansowanych stylów
-                            >
-                                <DirectionsRenderer points={points} />
-                            </Map>
+                            {validPoints.length >= 2 ? (
+                                <Map
+                                    defaultCenter={center}
+                                    defaultZoom={zoom}
+                                    gestureHandling="greedy"
+                                    disableDefaultUI={false}
+                                    mapId="route-map"
+                                >
+                                    <DirectionsRenderer points={points} />
+                                </Map>
+                            ) : (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    height: '100%',
+                                    padding: '2rem',
+                                    textAlign: 'center',
+                                    color: '#64748b'
+                                }}>
+                                    <div>
+                                        <AlertCircle size={48} style={{ margin: '0 auto 1rem', color: '#f59e0b' }} />
+                                        <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                            Nie można wyświetlić trasy
+                                        </p>
+                                        <p style={{ fontSize: '0.875rem' }}>
+                                            Co najmniej 2 punkty muszą mieć współrzędne GPS
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </MapContainer>
 
                         <Sidebar>
+                            {missingCoordinatesCount > 0 && (
+                                <WarningBanner>
+                                    <AlertCircle size={16} />
+                                    <div>
+                                        {missingCoordinatesCount} {missingCoordinatesCount === 1 ? 'punkt nie ma' : 'punktów nie ma'} współrzędnych GPS i nie {missingCoordinatesCount === 1 ? 'jest wyświetlany' : 'są wyświetlane'} na mapie
+                                    </div>
+                                </WarningBanner>
+                            )}
+
                             <RouteStats>
                                 <StatRow>
                                     <StatLabel>Punktów na trasie:</StatLabel>
                                     <StatValue>{points.length}</StatValue>
+                                </StatRow>
+                                <StatRow>
+                                    <StatLabel>Na mapie:</StatLabel>
+                                    <StatValue>{validPoints.length}</StatValue>
                                 </StatRow>
                                 <StatRow>
                                     <StatLabel>Punktów odbioru:</StatLabel>
@@ -378,11 +454,26 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                             </RouteStats>
 
                             {points.map((point) => (
-                                <PointCard key={`${point.order}-${point.type}`} $type={point.type}>
-                                    <PointOrder $type={point.type}>{point.order}</PointOrder>
+                                <PointCard
+                                    key={`${point.order}-${point.type}`}
+                                    $type={point.type}
+                                    $noCoordinates={!point.hasCoordinates}
+                                >
+                                    <PointOrder
+                                        $type={point.type}
+                                        $noCoordinates={!point.hasCoordinates}
+                                    >
+                                        {point.order}
+                                    </PointOrder>
                                     <PointInfo>
                                         <PointChild>{point.childName}</PointChild>
                                         <PointAddress>{point.address}</PointAddress>
+                                        {!point.hasCoordinates && (
+                                            <NoCoordinatesWarning>
+                                                <AlertCircle size={12} />
+                                                Brak współrzędnych GPS
+                                            </NoCoordinatesWarning>
+                                        )}
                                         <PointType $type={point.type}>
                                             <MapPin size={12} />
                                             {point.type === 'pickup' ? 'Odbiór' : 'Dowóz'}
