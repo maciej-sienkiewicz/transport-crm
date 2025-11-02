@@ -275,6 +275,66 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
         return points;
     }, [route.points]);
 
+    // NOWA FUNKCJA: Konwertuje punkty z mapy z powrotem na RoutePoint
+    const convertMapPointsToRoutePoints = useCallback((mapPoints: Array<{
+        address: string;
+        lat: number | null;
+        lng: number | null;
+        type: 'pickup' | 'dropoff';
+        childName: string;
+        order: number;
+        hasCoordinates: boolean;
+    }>): RoutePoint[] => {
+        // Stwórz mapę po childName dla szybkiego wyszukiwania
+        const originalPointsMap = new Map<string, RoutePoint[]>();
+        route.points.forEach(point => {
+            const key = `${point.childName}-${point.type}`;
+            if (!originalPointsMap.has(key)) {
+                originalPointsMap.set(key, []);
+            }
+            originalPointsMap.get(key)!.push(point);
+        });
+
+        // Konwertuj z powrotem
+        return mapPoints.map((mapPoint, index) => {
+            const key = `${mapPoint.childName}-${mapPoint.type.toUpperCase()}`;
+            const originalPoints = originalPointsMap.get(key) || [];
+            const originalPoint = originalPoints[0]; // Weź pierwszy pasujący
+
+            if (!originalPoint) {
+                console.error('Nie znaleziono oryginalnego punktu dla:', mapPoint);
+                throw new Error('Błąd konwersji punktów');
+            }
+
+            return {
+                ...originalPoint,
+                order: index + 1, // Nowa kolejność
+            };
+        });
+    }, [route.points]);
+
+    // NOWA FUNKCJA: Obsługa zapisu nowej kolejności z mapy
+    const handleSaveOrderFromMap = useCallback((newMapPoints: Array<{
+        address: string;
+        lat: number | null;
+        lng: number | null;
+        type: 'pickup' | 'dropoff';
+        childName: string;
+        order: number;
+        hasCoordinates: boolean;
+    }>) => {
+        try {
+            console.log('handleSaveOrderFromMap wywołane z punktami:', newMapPoints);
+            const newRoutePoints = convertMapPointsToRoutePoints(newMapPoints);
+            console.log('Skonwertowane punkty:', newRoutePoints);
+            onReorderPoints(route.id, newRoutePoints);
+            toast.success('Kolejność punktów została zaktualizowana');
+        } catch (error) {
+            console.error('Błąd podczas zapisu kolejności:', error);
+            toast.error('Nie udało się zapisać nowej kolejności');
+        }
+    }, [route.id, convertMapPointsToRoutePoints, onReorderPoints]);
+
     const handleShowMap = useCallback(() => {
         if (route.points.length === 0) {
             toast.error('Dodaj punkty do trasy, aby zobaczyć mapę');
@@ -686,6 +746,7 @@ export const RouteBuilderCard: React.FC<RouteBuilderCardProps> = ({
                 routeName={route.routeName || `Trasa ${index + 1}`}
                 points={getRoutePoints()}
                 apiKey={GOOGLE_MAPS_API_KEY}
+                onSaveOrder={handleSaveOrderFromMap}
             />
         </>
     );
