@@ -5,21 +5,25 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 
 const PageContainer = styled.div`
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: ${({ theme }) => theme.spacing.xl};
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-        padding: ${({ theme }) => theme.spacing.lg};
-    }
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 `;
 
 const PageHeader = styled.div`
-    margin-bottom: ${({ theme }) => theme.spacing.xl};
+    /* Dodajemy padding tutaj, zamiast w PageContainer */
+    padding: ${({ theme }) => theme.spacing.xl};
+    padding-bottom: 0;
 `;
 
 const BackButton = styled(Button)`
-    margin-bottom: ${({ theme }) => theme.spacing.md};
+    /* Usunięto margin-bottom, aby polegać na paddingu CockpitContainer */
+`;
+
+// Wrapper, który zajmie pozostałą dostępną wysokość
+const DetailWrapper = styled.div`
+    flex: 1;
+    min-height: 0; // Zapobiega problemom z flex overflow
 `;
 
 interface RouteDetailPageProps {
@@ -39,7 +43,9 @@ export const RouteDetailPage: React.FC<RouteDetailPageProps> = ({ id }) => {
                     Powrót do listy tras
                 </BackButton>
             </PageHeader>
-            <RouteDetail id={id} />
+            <DetailWrapper>
+                <RouteDetail id={id} />
+            </DetailWrapper>
         </PageContainer>
     );
 };

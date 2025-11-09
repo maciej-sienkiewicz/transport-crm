@@ -1,3 +1,5 @@
+// src/features/routes/components/MultiRoutePlanner/MultiRoutePlanner.tsx
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { Plus, Save, Calendar, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -8,7 +10,7 @@ import { Input } from '@/shared/ui/Input';
 import { Button } from '@/shared/ui/Button';
 import { Card } from '@/shared/ui/Card';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
-import { AvailableChild, ChildSchedule, RoutePoint } from '../../types';
+import { AvailableChild, ChildSchedule, LocalRouteStop } from '../../types';
 import { RouteBuilderCard } from './RouteBuilderCard';
 import { ChildrenPool } from './ChildrenPool';
 import {
@@ -41,7 +43,7 @@ export interface RouteBuilder {
     routeName: string;
     vehicleId: string;
     driverId: string;
-    points: RoutePoint[];
+    stops: LocalRouteStop[];
 }
 
 interface ChildScheduleItem {
@@ -55,7 +57,7 @@ export const MultiRoutePlanner: React.FC = () => {
     );
     const [routes, setRoutes] = useState<RouteBuilder[]>([]);
     const [draggedItem, setDraggedItem] = useState<{ child: AvailableChild; schedule: ChildSchedule } | null>(null);
-    const [draggedPoint, setDraggedPoint] = useState<{ routeId: string; point: RoutePoint } | null>(null);
+    const [draggedStop, setDraggedStop] = useState<{ routeId: string; stop: LocalRouteStop } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isPoolCollapsed, setIsPoolCollapsed] = useState(false);
 
@@ -68,7 +70,6 @@ export const MultiRoutePlanner: React.FC = () => {
 
     const childScheduleItems = useMemo<ChildScheduleItem[]>(() => {
         if (!availableChildren) return [];
-
         return availableChildren.map(item => ({
             child: item,
             schedule: item.schedule
@@ -77,7 +78,7 @@ export const MultiRoutePlanner: React.FC = () => {
 
     const unassignedItems = useMemo(() => {
         const assignedScheduleIds = new Set(
-            routes.flatMap(route => route.points.map(p => p.scheduleId))
+            routes.flatMap(route => route.stops.map(s => s.scheduleId))
         );
         return childScheduleItems.filter(item => !assignedScheduleIds.has(item.schedule.id));
     }, [childScheduleItems, routes]);
@@ -88,7 +89,7 @@ export const MultiRoutePlanner: React.FC = () => {
             routeName: '',
             vehicleId: '',
             driverId: '',
-            points: [],
+            stops: [],
         };
         setRoutes(prev => [...prev, newRoute]);
     }, []);
@@ -105,7 +106,7 @@ export const MultiRoutePlanner: React.FC = () => {
         );
     }, []);
 
-    const handleAddPointsToRoute = useCallback((routeId: string, child: AvailableChild, schedule: ChildSchedule) => {
+    const handleAddStopsToRoute = useCallback((routeId: string, child: AvailableChild, schedule: ChildSchedule) => {
         const route = routes.find(r => r.id === routeId);
         if (!route) {
             toast.error('Nie znaleziono trasy');
@@ -117,7 +118,7 @@ export const MultiRoutePlanner: React.FC = () => {
             return false;
         }
 
-        const alreadyInRoute = route.points.find(p => p.scheduleId === schedule.id);
+        const alreadyInRoute = route.stops.find(s => s.scheduleId === schedule.id);
         if (alreadyInRoute) {
             toast.error(`${child.firstName} ${child.lastName} jest już w tej trasie`);
             return false;
@@ -126,15 +127,15 @@ export const MultiRoutePlanner: React.FC = () => {
         if (vehiclesData) {
             const vehicle = vehiclesData.content.find(v => v.id === route.vehicleId);
             if (vehicle) {
-                const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+                const sortedStops = [...route.stops].sort((a, b) => a.order - b.order);
                 const inVehicleSchedules = new Map<string, { wheelchair: boolean }>();
                 let maxSeatsNeeded = 0;
 
-                sortedPoints.forEach(point => {
-                    if (point.type === 'PICKUP') {
-                        inVehicleSchedules.set(point.scheduleId, { wheelchair: point.transportNeeds.wheelchair });
+                sortedStops.forEach(stop => {
+                    if (stop.type === 'PICKUP') {
+                        inVehicleSchedules.set(stop.scheduleId, { wheelchair: stop.transportNeeds.wheelchair });
                     } else {
-                        inVehicleSchedules.delete(point.scheduleId);
+                        inVehicleSchedules.delete(stop.scheduleId);
                     }
 
                     let currentSeats = 0;
@@ -164,12 +165,12 @@ export const MultiRoutePlanner: React.FC = () => {
             prev.map(r => {
                 if (r.id !== routeId) return r;
 
-                const currentMaxOrder = r.points.length > 0
-                    ? Math.max(...r.points.map(p => p.order))
+                const currentMaxOrder = r.stops.length > 0
+                    ? Math.max(...r.stops.map(s => s.order))
                     : 0;
 
-                const pickupPoint: RoutePoint = {
-                    id: `point-${Date.now()}-pickup`,
+                const pickupStop: LocalRouteStop = {
+                    id: `stop-${Date.now()}-pickup`,
                     type: 'PICKUP',
                     childId: child.id,
                     scheduleId: schedule.id,
@@ -183,8 +184,8 @@ export const MultiRoutePlanner: React.FC = () => {
                     transportNeeds: child.transportNeeds,
                 };
 
-                const dropoffPoint: RoutePoint = {
-                    id: `point-${Date.now()}-dropoff`,
+                const dropoffStop: LocalRouteStop = {
+                    id: `stop-${Date.now()}-dropoff`,
                     type: 'DROPOFF',
                     childId: child.id,
                     scheduleId: schedule.id,
@@ -200,7 +201,7 @@ export const MultiRoutePlanner: React.FC = () => {
 
                 return {
                     ...r,
-                    points: [...r.points, pickupPoint, dropoffPoint],
+                    stops: [...r.stops, pickupStop, dropoffStop],
                 };
             })
         );
@@ -209,54 +210,54 @@ export const MultiRoutePlanner: React.FC = () => {
         return true;
     }, [routes, vehiclesData]);
 
-    const handleRemovePointFromRoute = useCallback((routeId: string, pointId: string) => {
+    const handleRemoveStopFromRoute = useCallback((routeId: string, stopId: string) => {
         setRoutes(prev =>
             prev.map(route => {
                 if (route.id !== routeId) return route;
 
-                const pointToRemove = route.points.find(p => p.id === pointId);
-                if (!pointToRemove) return route;
+                const stopToRemove = route.stops.find(s => s.id === stopId);
+                if (!stopToRemove) return route;
 
-                const updatedPoints = route.points
-                    .filter(p => p.scheduleId !== pointToRemove.scheduleId)
-                    .map((p, index) => ({ ...p, order: index + 1 }));
+                const updatedStops = route.stops
+                    .filter(s => s.scheduleId !== stopToRemove.scheduleId)
+                    .map((s, index) => ({ ...s, order: index + 1 }));
 
-                return { ...route, points: updatedPoints };
+                return { ...route, stops: updatedStops };
             })
         );
     }, []);
 
-    const handleReorderPoints = useCallback((routeId: string, points: RoutePoint[]) => {
+    const handleReorderStops = useCallback((routeId: string, stops: LocalRouteStop[]) => {
         setRoutes(prev =>
             prev.map(route => {
                 if (route.id !== routeId) return route;
-                return { ...route, points: points.map((p, index) => ({ ...p, order: index + 1 })) };
+                return { ...route, stops: stops.map((s, index) => ({ ...s, order: index + 1 })) };
             })
         );
     }, []);
 
-    const handleMovePointBetweenRoutes = useCallback(
-        (fromRouteId: string, toRouteId: string, pointId: string) => {
+    const handleMoveStopBetweenRoutes = useCallback(
+        (fromRouteId: string, toRouteId: string, stopId: string) => {
             const fromRoute = routes.find(r => r.id === fromRouteId);
-            const pointToMove = fromRoute?.points.find(p => p.id === pointId);
+            const stopToMove = fromRoute?.stops.find(s => s.id === stopId);
 
-            if (!pointToMove) return;
+            if (!stopToMove) return;
 
-            const schedulePoints = fromRoute!.points.filter(p => p.scheduleId === pointToMove.scheduleId);
+            const scheduleStops = fromRoute!.stops.filter(s => s.scheduleId === stopToMove.scheduleId);
 
             const toRoute = routes.find(r => r.id === toRouteId);
             if (toRoute && toRoute.vehicleId && vehiclesData) {
                 const vehicle = vehiclesData.content.find(v => v.id === toRoute.vehicleId);
                 if (vehicle) {
-                    const sortedPoints = [...toRoute.points].sort((a, b) => a.order - b.order);
+                    const sortedStops = [...toRoute.stops].sort((a, b) => a.order - b.order);
                     const inVehicleSchedules = new Map<string, { wheelchair: boolean }>();
                     let maxSeatsNeeded = 0;
 
-                    sortedPoints.forEach(point => {
-                        if (point.type === 'PICKUP') {
-                            inVehicleSchedules.set(point.scheduleId, { wheelchair: point.transportNeeds.wheelchair });
+                    sortedStops.forEach(stop => {
+                        if (stop.type === 'PICKUP') {
+                            inVehicleSchedules.set(stop.scheduleId, { wheelchair: stop.transportNeeds.wheelchair });
                         } else {
-                            inVehicleSchedules.delete(point.scheduleId);
+                            inVehicleSchedules.delete(stop.scheduleId);
                         }
 
                         let currentSeats = 0;
@@ -266,7 +267,7 @@ export const MultiRoutePlanner: React.FC = () => {
                         maxSeatsNeeded = Math.max(maxSeatsNeeded, currentSeats);
                     });
 
-                    const additionalSeats = pointToMove.transportNeeds.wheelchair ? 2 : 1;
+                    const additionalSeats = stopToMove.transportNeeds.wheelchair ? 2 : 1;
                     if (maxSeatsNeeded + additionalSeats > vehicle.capacity.totalSeats) {
                         toast.error(`Nie można przenieść - przekroczono pojemność pojazdu docelowego!`);
                         return;
@@ -277,22 +278,22 @@ export const MultiRoutePlanner: React.FC = () => {
             setRoutes(prev =>
                 prev.map(route => {
                     if (route.id === fromRouteId) {
-                        const updatedPoints = route.points
-                            .filter(p => p.scheduleId !== pointToMove.scheduleId)
-                            .map((p, index) => ({ ...p, order: index + 1 }));
-                        return { ...route, points: updatedPoints };
+                        const updatedStops = route.stops
+                            .filter(s => s.scheduleId !== stopToMove.scheduleId)
+                            .map((s, index) => ({ ...s, order: index + 1 }));
+                        return { ...route, stops: updatedStops };
                     }
                     if (route.id === toRouteId) {
-                        const currentMaxOrder = route.points.length > 0
-                            ? Math.max(...route.points.map(p => p.order))
+                        const currentMaxOrder = route.stops.length > 0
+                            ? Math.max(...route.stops.map(s => s.order))
                             : 0;
-                        const newPoints = schedulePoints.map((p, index) => ({
-                            ...p,
-                            id: `point-${Date.now()}-${p.type.toLowerCase()}-${index}`,
+                        const newStops = scheduleStops.map((s, index) => ({
+                            ...s,
+                            id: `stop-${Date.now()}-${s.type.toLowerCase()}-${index}`,
                             order: currentMaxOrder + index + 1,
                         }));
-                        toast.success(`Przeniesiono ${pointToMove.childName} do innej trasy`);
-                        return { ...route, points: [...route.points, ...newPoints] };
+                        toast.success(`Przeniesiono ${stopToMove.childName} do innej trasy`);
+                        return { ...route, stops: [...route.stops, ...newStops] };
                     }
                     return route;
                 })
@@ -305,13 +306,13 @@ export const MultiRoutePlanner: React.FC = () => {
         setDraggedItem({ child, schedule });
     }, []);
 
-    const handleDragStartPoint = useCallback((routeId: string, point: RoutePoint) => {
-        setDraggedPoint({ routeId, point });
+    const handleDragStartStop = useCallback((routeId: string, stop: LocalRouteStop) => {
+        setDraggedStop({ routeId, stop });
     }, []);
 
     const handleDragEnd = useCallback(() => {
         setDraggedItem(null);
-        setDraggedPoint(null);
+        setDraggedStop(null);
     }, []);
 
     const validateRoutes = useCallback(() => {
@@ -327,23 +328,23 @@ export const MultiRoutePlanner: React.FC = () => {
             if (!route.driverId) {
                 errors.push(`Trasa ${index + 1}: Nie wybrano kierowcy`);
             }
-            if (route.points.length === 0) {
-                errors.push(`Trasa ${index + 1}: Brak przypisanych punktów`);
+            if (route.stops.length === 0) {
+                errors.push(`Trasa ${index + 1}: Brak przypisanych stopów`);
             }
 
             if (route.vehicleId && vehiclesData) {
                 const vehicle = vehiclesData.content.find(v => v.id === route.vehicleId);
                 if (vehicle) {
                     let maxConcurrent = 0;
-                    const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
+                    const sortedStops = [...route.stops].sort((a, b) => a.order - b.order);
                     let currentInVehicle = 0;
                     const inVehicleSchedules = new Set<string>();
 
-                    sortedPoints.forEach(point => {
-                        if (point.type === 'PICKUP') {
-                            inVehicleSchedules.add(point.scheduleId);
+                    sortedStops.forEach(stop => {
+                        if (stop.type === 'PICKUP') {
+                            inVehicleSchedules.add(stop.scheduleId);
                         } else {
-                            inVehicleSchedules.delete(point.scheduleId);
+                            inVehicleSchedules.delete(stop.scheduleId);
                         }
                         currentInVehicle = inVehicleSchedules.size;
                         maxConcurrent = Math.max(maxConcurrent, currentInVehicle);
@@ -352,19 +353,19 @@ export const MultiRoutePlanner: React.FC = () => {
                     let maxSeatsNeeded = 0;
                     const scheduleSeats = new Map<string, number>();
 
-                    route.points.forEach(point => {
-                        if (!scheduleSeats.has(point.scheduleId)) {
-                            const seats = point.transportNeeds.wheelchair ? 2 : 1;
-                            scheduleSeats.set(point.scheduleId, seats);
+                    route.stops.forEach(stop => {
+                        if (!scheduleSeats.has(stop.scheduleId)) {
+                            const seats = stop.transportNeeds.wheelchair ? 2 : 1;
+                            scheduleSeats.set(stop.scheduleId, seats);
                         }
                     });
 
                     inVehicleSchedules.clear();
-                    sortedPoints.forEach(point => {
-                        if (point.type === 'PICKUP') {
-                            inVehicleSchedules.add(point.scheduleId);
+                    sortedStops.forEach(stop => {
+                        if (stop.type === 'PICKUP') {
+                            inVehicleSchedules.add(stop.scheduleId);
                         } else {
-                            inVehicleSchedules.delete(point.scheduleId);
+                            inVehicleSchedules.delete(stop.scheduleId);
                         }
 
                         let currentSeats = 0;
@@ -378,8 +379,8 @@ export const MultiRoutePlanner: React.FC = () => {
                         errors.push(`Trasa ${index + 1}: Przekroczono pojemność pojazdu (${maxSeatsNeeded}/${vehicle.capacity.totalSeats} miejsc)`);
                     }
 
-                    const wheelchairPoints = route.points.filter(p => p.transportNeeds.wheelchair);
-                    const uniqueWheelchairSchedules = new Set(wheelchairPoints.map(p => p.scheduleId));
+                    const wheelchairStops = route.stops.filter(s => s.transportNeeds.wheelchair);
+                    const uniqueWheelchairSchedules = new Set(wheelchairStops.map(s => s.scheduleId));
 
                     if (uniqueWheelchairSchedules.size > vehicle.capacity.wheelchairSpaces) {
                         errors.push(
@@ -412,9 +413,9 @@ export const MultiRoutePlanner: React.FC = () => {
             const { routesApi } = await import('../../api/routesApi');
 
             const savePromises = routes.map(async (route) => {
-                const sortedPoints = [...route.points].sort((a, b) => a.order - b.order);
-                const earliestTime = sortedPoints[0]?.estimatedTime || '08:00';
-                const latestTime = sortedPoints[sortedPoints.length - 1]?.estimatedTime || '16:00';
+                const sortedStops = [...route.stops].sort((a, b) => a.order - b.order);
+                const earliestTime = sortedStops[0]?.estimatedTime || '08:00';
+                const latestTime = sortedStops[sortedStops.length - 1]?.estimatedTime || '16:00';
 
                 return routesApi.create({
                     routeName: route.routeName.trim(),
@@ -423,12 +424,13 @@ export const MultiRoutePlanner: React.FC = () => {
                     vehicleId: route.vehicleId,
                     estimatedStartTime: earliestTime,
                     estimatedEndTime: latestTime,
-                    points: route.points.map(point => ({
-                        type: point.type,
-                        childId: point.childId,
-                        scheduleId: point.scheduleId,
-                        order: point.order,
-                        estimatedTime: point.estimatedTime,
+                    stops: sortedStops.map(stop => ({
+                        stopOrder: stop.order,
+                        stopType: stop.type,
+                        childId: stop.childId,
+                        scheduleId: stop.scheduleId,
+                        estimatedTime: stop.estimatedTime,
+                        address: stop.address,
                     })),
                 });
             });
@@ -450,7 +452,7 @@ export const MultiRoutePlanner: React.FC = () => {
     };
 
     const stats = useMemo(() => {
-        const uniqueSchedules = new Set(routes.flatMap(route => route.points.map(p => p.scheduleId)));
+        const uniqueSchedules = new Set(routes.flatMap(route => route.stops.map(s => s.scheduleId)));
         const totalChildren = uniqueSchedules.size;
         const totalRoutes = routes.length;
         const unassigned = unassignedItems.length;
@@ -590,14 +592,14 @@ export const MultiRoutePlanner: React.FC = () => {
                                     drivers={driversData?.content || []}
                                     vehicles={vehiclesData?.content || []}
                                     draggedItem={draggedItem}
-                                    draggedPoint={draggedPoint}
+                                    draggedStop={draggedStop}
                                     onUpdate={handleUpdateRoute}
                                     onRemove={handleRemoveRoute}
-                                    onAddPoints={handleAddPointsToRoute}
-                                    onRemovePoint={handleRemovePointFromRoute}
-                                    onReorderPoints={handleReorderPoints}
-                                    onMovePointBetweenRoutes={handleMovePointBetweenRoutes}
-                                    onDragStartPoint={handleDragStartPoint}
+                                    onAddStops={handleAddStopsToRoute}
+                                    onRemoveStop={handleRemoveStopFromRoute}
+                                    onReorderStops={handleReorderStops}
+                                    onMoveStopBetweenRoutes={handleMoveStopBetweenRoutes}
+                                    onDragStartStop={handleDragStartStop}
                                     onDragEnd={handleDragEnd}
                                 />
                             ))}

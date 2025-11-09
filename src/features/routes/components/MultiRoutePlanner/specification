@@ -1,0 +1,290 @@
+1. Główny Layout: CockpitContainer
+Zastępujemy komponent Container nowym.
+
+Komponent: CockpitContainer
+
+Styling:
+
+display: grid;
+
+grid-template-columns: 450px 1fr; (Fix 450px dla panelu info, reszta dla mapy).
+
+gap: ${({ theme }) => theme.spacing.xl};
+
+padding: ${({ theme }) => theme.spacing.xl};
+
+max-width: 100%; (Usuwamy max-width: 1600px).
+
+height: calc(100vh - [WysokośćGłównegoHeaderaAplikacji]); (Widok musi zajmować całą dostępną wysokość).
+
+2. Panel Lewy: ControlPanel
+Ten panel zawiera wszystkie informacje i kontrolki. Jest scrollowalny niezależnie od mapy.
+
+Komponent: ControlPanel (Renderowany w lewej kolumnie CockpitContainer).
+
+Styling:
+
+display: flex;
+
+flex-direction: column;
+
+gap: ${({ theme }) => theme.spacing.lg};
+
+background: white;
+
+border-radius: ${({ theme }) => theme.borderRadius['2xl']};
+
+border: 1px solid ${({ theme }) => theme.colors.slate[200]};
+
+overflow-y: auto; (Kluczowe: Ten panel musi mieć własny scroll).
+
+2.1. Nagłówek Trasy (Uproszczony)
+Używamy RouteHeader, ale upraszczamy MetaGrid.
+
+RouteTitleRow i Badge statusu pozostają bez zmian.
+
+MetaGrid zastępujemy nowym SimplifiedMetaGrid:
+
+display: grid;
+
+grid-template-columns: 1fr 1fr;
+
+gap: ${({ theme }) => theme.spacing.md};
+
+Używamy MetaItem dla 4 kluczowych danych:
+
+Data (ikona Calendar)
+
+Kierowca (ikona User, z linkiem)
+
+Pojazd (ikona Truck, z linkiem)
+
+Plan (ikona Clock, "HH:MM - HH:MM")
+
+2.2. Pasek Akcji
+Renderowany bezpośrednio pod RouteHeader. Używamy ActionButtons, ale z flex-direction: row;.
+
+Logika renderowania:
+
+Gdy route.status === 'PLANNED' i !isEditMode:
+
+Pojedynczy Button: variant="secondary", onClick={handleEditModeToggle}, ikona Edit, tekst "Edytuj kolejność".
+
+Gdy route.status === 'PLANNED' i isEditMode:
+
+Dwa przyciski obok siebie:
+
+Button: variant="primary", onClick={handleSaveOrder}, ikona CheckCircle, tekst "Zapisz".
+
+Button: variant="secondary", onClick={handleCancelEdit}, ikona XCircle, tekst "Anuluj".
+
+Przycisk "Pokaż na mapie" jest całkowicie usunięty.
+
+2.3. Nawigacja Zakładek
+Używamy TabbedSection, TabsHeader i Tab bez zmian, ale modyfikujemy nazwy zakładek.
+
+"Przebieg Trasy" (ikona MapPin, domyślnie aktywna)
+
+"Dzieci" (ikona Users)
+
+"Historia" (ikona History)
+
+2.4. Zawartość Zakładki: "Przebieg Trasy" (NOWY KOMPONENT)
+To jest implementacja "osi tramwajowej". Zastępujemy StopsTimeline i StopCard.
+
+Komponent nadrzędny: RouteTimeline
+
+display: flex; flex-direction: column;
+
+padding: 0 ${({ theme }) => theme.spacing.sm}; (lekkie odsunięcie od krawędzi)
+
+Renderuje displayStops.map((stop, index) => <TimelineStop ... />).
+
+Komponent dziecka: TimelineStop
+
+position: relative;
+
+display: grid;
+
+grid-template-columns: 48px 1fr; (48px na oś i kropkę)
+
+gap: ${({ theme }) => theme.spacing.sm};
+
+padding-bottom: ${({ theme }) => theme.spacing.xl};
+
+Elementy w TimelineStop (w kolumnie 1):
+
+TimelineTrack (oś):
+
+position: absolute; width: 2px; background: ${({ theme }) => theme.colors.slate[200]};
+
+left: 23px; (środek kolumny 48px)
+
+top: 0; bottom: 0;
+
+Warunkowo: &:first-child { top: 20px; } (zaczyna się od kropki), &:last-child { bottom: auto; height: 20px; } (kończy się na kropce).
+
+TimelineDot (kropka):
+
+position: relative; (w osi)
+
+top: 20px; (stałe wyrównanie)
+
+left: 16px; (23px - 8px promienia)
+
+width: 16px; height: 16px; border-radius: 50%;
+
+background: white; border: 2px solid;
+
+z-index: 2;
+
+Elementy w TimelineStop (w kolumnie 2):
+
+TimelineContent:
+
+display: flex; flex-direction: column; gap: ${({ theme }) => theme.spacing.sm};
+
+Gdy isEditMode: Renderuj DragHandle z ikoną GripVertical w prawym górnym rogu.
+
+StopTypeBadge (Odbiór/Dowóz).
+
+ChildName (nadal jako link onClick={() => handleChildClick(stop.childId)}).
+
+AddressRow z adresem (bez zmian).
+
+TimeItem z planowanym czasem (stop.estimatedTime).
+
+Uproszczony kontakt: Zamiast GuardianRow, renderuj prosty TimeItem:
+
+<TimeItem> <Phone size={14} /> <strong>Opiekun:</strong> {stop.guardian.phone} </TimeItem>
+
+Warunkowo: Renderuj CancellationSection lub ExecutionSection, ale w uproszczonej formie (mniejszy padding, mniejsza czcionka).
+
+Stany TimelineStop (Warianty wizualne):
+
+$isCancelled:
+
+TimelineContent: opacity: 0.5; text-decoration: line-through;
+
+TimelineDot: border-color: ${({ theme }) => theme.colors.danger[600]}; background: ${({ theme }) => theme.colors.danger[100]};
+
+$isExecuted (executionStatus istnieje):
+
+TimelineDot: border-color: ${({ theme }) => theme.colors.success[600]}; background: ${({ theme }) => theme.colors.success[600]};
+
+Dodaj ikonę Check (lucide) wewnątrz kropki (color: white;).
+
+$isCurrent (Logika useRoute):
+
+TimelineDot: width: 24px; height: 24px; left: 12px; top: 16px;
+
+border-color: ${({ theme }) => theme.colors.primary[600]};
+
+background: ${({ theme }) => theme.colors.primary[100]};
+
+Dodaj animację box-shadow (pulsującą aurę).
+
+$isPending (domyślny):
+
+TimelineDot: border-color: ${({ theme }) => theme.colors.slate[400]};
+
+2.5. Zawartość Zakładki: "Dzieci" (Uproszczona)
+Zastępujemy ChildrenSummaryGrid i ChildSummaryCard.
+
+Komponent nadrzędny: ChildrenStatusList
+
+display: flex; flex-direction: column;
+
+gap: ${({ theme }) => theme.spacing.xs};
+
+Komponent dziecka: ChildStatusItem (mapowany z childrenSummary)
+
+display: flex; align-items: center; gap: ${({ theme }) => theme.spacing.md};
+
+padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.xs};
+
+border-radius: ${({ theme }) => theme.borderRadius.lg};
+
+&:hover { background: ${({ theme }) => theme.colors.slate[50]}; }
+
+Elementy w ChildStatusItem:
+
+ChildAvatar (bez zmian, ale mniejszy: width: 40px; height: 40px;).
+
+ChildSummaryInfo (bez zmian, zawiera ChildSummaryName).
+
+ChildLiveStatusBadge (NOWY):
+
+margin-left: auto;
+
+Użyj komponentu Badge.
+
+Logika statusu:
+
+"W pojeździe": variant="primary"
+
+"Dostarczone": variant="success"
+
+"Oczekuje": variant="default"
+
+"Anulowane": variant="danger"
+
+3. Panel Prawy: MapPanel
+Ten panel zawiera wyłącznie mapę. Jest stały i nie scrolluje się.
+
+Komponent: MapPanel (Renderowany w prawej kolumnie CockpitContainer).
+
+Styling:
+
+flex: 1;
+
+min-height: 500px;
+
+border-radius: ${({ theme }) => theme.borderRadius.xl};
+
+overflow: hidden;
+
+border: 1px solid ${({ theme }) => theme.colors.slate[200]};
+
+Zawartość:
+
+Renderuj APIProvider i Map.
+
+Renderuj RouteRenderer, ale teraz przyjmuje on stops (lub displayStops) oraz opcjonalny currentStopId jako props.
+
+Logika Markerów (w RouteRenderer):
+
+Markery SVG muszą być dynamiczne.
+
+fill="${markerColor}":
+
+$isCancelled: fill: theme.colors.danger[600]
+
+$isExecuted: fill: theme.colors.success[600]
+
+$isPending (Odbiór): fill: theme.colors.primary[600]
+
+$isPending (Dowóz): fill: theme.colors.success[600] (zostaje)
+
+$isCurrent:
+
+scaledSize: new google.maps.Size(50, 50) (większy)
+
+zIndex: 2000 (na wierzchu)
+
+4. Interakcje Między Panelami
+Hover na TimelineStop (Lewo):
+
+Wywołaj map.panTo(stop.lat, stop.lng) (jeśli mapa jest już wyśrodkowana, nie rób nic).
+
+Podświetl (powiększ) odpowiadający marker na mapie.
+
+Click na TimelineStop (Lewo):
+
+Wywołaj map.panTo(stop.lat, stop.lng) i map.setZoom(15).
+
+Click na Marker (Prawo):
+
+Wywołaj controlPanel.scrollTo({ top: [pozycjaStopu], behavior: 'smooth' }).
+
+Dodaj tymczasowe podświetlenie (background: theme.colors.primary[50]) do TimelineStop w lewym panelu.

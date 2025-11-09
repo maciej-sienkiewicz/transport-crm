@@ -1,53 +1,67 @@
+// src/features/routes/types.ts
+
 export type RouteStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
-export type ChildInRouteStatus = 'PENDING' | 'IN_VEHICLE' | 'DELIVERED' | 'ABSENT';
+export type StopType = 'PICKUP' | 'DROPOFF';
 
-export type RoutePointType = 'PICKUP' | 'DROPOFF';
+export type ExecutionStatus = 'COMPLETED' | 'NO_SHOW' | 'REFUSED';
 
-export interface RouteChild {
-    childId: string;
-    scheduleId: string;
-    pickupOrder: number;
-    estimatedPickupTime: string;
-    estimatedDropoffTime: string;
+export interface AddressWithCoordinates {
+    label: string;
+    street: string;
+    houseNumber: string;
+    apartmentNumber?: string;
+    postalCode: string;
+    city: string;
+    latitude?: number | null;
+    longitude?: number | null;
 }
 
-export interface RoutePoint {
+export interface TransportNeeds {
+    wheelchair: boolean;
+    specialSeat: boolean;
+    safetyBelt: boolean;
+}
+
+export interface Guardian {
+    firstName: string;
+    lastName: string;
+    phone: string;
+}
+
+// RouteStop z GET /api/routes/{id}
+export interface RouteStop {
     id: string;
-    type: RoutePointType;
+    stopOrder: number;
+    stopType: StopType;
     childId: string;
+    childFirstName: string;
+    childLastName: string;
     scheduleId: string;
-    order: number;
-    address: {
-        label: string;
-        street: string;
-        houseNumber: string;
-        apartmentNumber?: string;
-        postalCode: string;
-        city: string;
-        latitude?: number | null;
-        longitude?: number | null;
-    };
     estimatedTime: string;
-    childName: string;
-    childAge: number;
-    guardianName: string;
-    guardianPhone: string;
-    transportNeeds: {
-        wheelchair: boolean;
-        specialSeat: boolean;
-        safetyBelt: boolean;
-    };
+    address: AddressWithCoordinates;
+    isCancelled: boolean;
+    cancelledAt: string | null;
+    cancellationReason: string | null;
+    actualTime: string | null;
+    executionStatus: ExecutionStatus | null;
+    executionNotes: string | null;
+    executedByName: string | null;
+    guardian: Guardian;
+    transportNeeds: TransportNeeds;
 }
 
-export interface CreateRoutePointRequest {
-    type: RoutePointType;
+// CreateStopRequest (używane przy tworzeniu trasy)
+export interface CreateStopRequest {
+    stopOrder: number;
+    stopType: StopType;
     childId: string;
     scheduleId: string;
-    order: number;
     estimatedTime: string;
+    address: AddressWithCoordinates;
 }
 
+// CreateRouteRequest (POST /api/routes)
 export interface CreateRouteRequest {
     routeName: string;
     date: string;
@@ -55,46 +69,10 @@ export interface CreateRouteRequest {
     vehicleId: string;
     estimatedStartTime: string;
     estimatedEndTime: string;
-    points: CreateRoutePointRequest[];
+    stops: CreateStopRequest[];
 }
 
-export interface RouteChildDetail {
-    id: string;
-    firstName: string;
-    lastName: string;
-    pickupOrder: number;
-    pickupAddress: {
-        label: string;
-        street: string;
-        houseNumber: string;
-        apartmentNumber?: string;
-        postalCode: string;
-        city: string;
-        latitude?: number | null;
-        longitude?: number | null;
-    };
-    dropoffAddress: {
-        label: string;
-        street: string;
-        houseNumber: string;
-        apartmentNumber?: string;
-        postalCode: string;
-        city: string;
-        latitude?: number | null;
-        longitude?: number | null;
-    };
-    estimatedPickupTime: string;
-    estimatedDropoffTime: string;
-    actualPickupTime?: string;
-    actualDropoffTime?: string;
-    status: ChildInRouteStatus;
-    guardian: {
-        firstName: string;
-        lastName: string;
-        phone: string;
-    };
-}
-
+// RouteListItem (GET /api/routes)
 export interface RouteListItem {
     id: string;
     routeName: string;
@@ -112,9 +90,10 @@ export interface RouteListItem {
     };
     estimatedStartTime: string;
     estimatedEndTime: string;
-    childrenCount: number;
+    stopsCount: number;
 }
 
+// RouteDetail (GET /api/routes/{id})
 export interface RouteDetail {
     id: string;
     companyId: string;
@@ -132,13 +111,16 @@ export interface RouteDetail {
         registrationNumber: string;
         make: string;
         model: string;
-        capacity: number;
+        capacity: {
+            totalSeats: number;
+            wheelchairSpaces: number;
+        };
     };
     estimatedStartTime: string;
     estimatedEndTime: string;
-    actualStartTime?: string;
-    actualEndTime?: string;
-    children: RouteChildDetail[];
+    actualStartTime: string | null;
+    actualEndTime: string | null;
+    stops: RouteStop[];
     notes: Array<{
         id: string;
         author: string;
@@ -149,54 +131,40 @@ export interface RouteDetail {
     updatedAt: string;
 }
 
+// ChildSchedule (używane w MultiRoutePlanner)
 export interface ChildSchedule {
     id: string;
     name: string;
     pickupTime: string;
     dropoffTime: string;
-    pickupAddress: {
-        label: string;
-        street: string;
-        houseNumber: string;
-        apartmentNumber?: string;
-        postalCode: string;
-        city: string;
-        latitude?: number | null;
-        longitude?: number | null;
-    };
-    dropoffAddress: {
-        label: string;
-        street: string;
-        houseNumber: string;
-        apartmentNumber?: string;
-        postalCode: string;
-        city: string;
-        latitude?: number | null;
-        longitude?: number | null;
-    };
+    pickupAddress: AddressWithCoordinates;
+    dropoffAddress: AddressWithCoordinates;
 }
 
+// AvailableChild (z GET /api/routes/available-children)
 export interface AvailableChild {
     id: string;
     firstName: string;
     lastName: string;
     age: number;
     disability: string[];
-    transportNeeds: {
-        wheelchair: boolean;
-        specialSeat: boolean;
-        safetyBelt: boolean;
-    };
+    transportNeeds: TransportNeeds;
     schedule: ChildSchedule;
-    guardian: {
-        firstName: string;
-        lastName: string;
-        phone: string;
-    };
+    guardian: Guardian;
 }
 
-export interface RouteBuilderChild extends AvailableChild {
-    pickupOrder: number;
-    estimatedPickupTime: string;
-    estimatedDropoffTime: string;
+// LocalRouteStop - używane wewnętrznie w MultiRoutePlanner
+export interface LocalRouteStop {
+    id: string;
+    type: StopType;
+    childId: string;
+    scheduleId: string;
+    order: number;
+    address: AddressWithCoordinates;
+    estimatedTime: string;
+    childName: string;
+    childAge: number;
+    guardianName: string;
+    guardianPhone: string;
+    transportNeeds: TransportNeeds;
 }

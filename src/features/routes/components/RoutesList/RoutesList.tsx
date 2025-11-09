@@ -1,3 +1,5 @@
+// src/features/routes/components/RoutesList/RoutesList.tsx
+
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useRoutes } from '../../hooks/useRoutes';
@@ -7,7 +9,7 @@ import { Table } from '@/shared/ui/Table';
 import { Badge } from '@/shared/ui/Badge';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Card } from '@/shared/ui/Card';
-import { Calendar, User, Truck, Users, Clock, ChevronRight } from 'lucide-react';
+import { Calendar, User, Truck, Users, Clock, ChevronRight, MapPin } from 'lucide-react';
 import { RouteStatus } from '../../types';
 
 const FiltersContainer = styled.div`
@@ -80,6 +82,29 @@ const RouteDate = styled.div`
 const MetaInfo = styled.div`
     font-size: 0.875rem;
     color: ${({ theme }) => theme.colors.slate[600]};
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const StopsInfo = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+`;
+
+const StopsMain = styled.div`
+    font-size: 0.875rem;
+    color: ${({ theme }) => theme.colors.slate[900]};
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const StopsSub = styled.div`
+    font-size: 0.75rem;
+    color: ${({ theme }) => theme.colors.slate[500]};
     display: flex;
     align-items: center;
     gap: ${({ theme }) => theme.spacing.xs};
@@ -219,58 +244,68 @@ export const RoutesList: React.FC = () => {
                             </Table.Row>
                         </Table.Header>
                         <Table.Body>
-                            {data.content.map((route) => (
-                                <RouteRow key={route.id} onClick={() => handleRouteClick(route.id)}>
-                                    <Table.Cell>
-                                        <RouteInfo>
-                                            <RouteName>{route.routeName}</RouteName>
-                                            <RouteDate>
-                                                <Calendar size={14} />
-                                                {new Date(route.date).toLocaleDateString('pl-PL', {
-                                                    weekday: 'short',
-                                                    year: 'numeric',
-                                                    month: 'long',
-                                                    day: 'numeric',
-                                                })}
-                                            </RouteDate>
-                                        </RouteInfo>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <MetaInfo>
-                                            <User size={16} />
-                                            {route.driver.firstName} {route.driver.lastName}
-                                        </MetaInfo>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <MetaInfo>
-                                            <Truck size={16} />
-                                            {route.vehicle.registrationNumber}
-                                        </MetaInfo>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <MetaInfo>
-                                            <Users size={16} />
-                                            {route.childrenCount} {route.childrenCount === 1 ? 'dziecko' : 'dzieci'}
-                                        </MetaInfo>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <MetaInfo>
-                                            <Clock size={16} />
-                                            {route.estimatedStartTime} - {route.estimatedEndTime}
-                                        </MetaInfo>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <Badge variant={statusVariants[route.status]}>
-                                            {statusLabels[route.status]}
-                                        </Badge>
-                                    </Table.Cell>
-                                    <Table.Cell>
-                                        <ActionCell>
-                                            <ChevronRight size={20} />
-                                        </ActionCell>
-                                    </Table.Cell>
-                                </RouteRow>
-                            ))}
+                            {data.content.map((route) => {
+                                const estimatedChildrenCount = Math.ceil(route.stopsCount / 2);
+
+                                return (
+                                    <RouteRow key={route.id} onClick={() => handleRouteClick(route.id)}>
+                                        <Table.Cell>
+                                            <RouteInfo>
+                                                <RouteName>{route.routeName}</RouteName>
+                                                <RouteDate>
+                                                    <Calendar size={14} />
+                                                    {new Date(route.date).toLocaleDateString('pl-PL', {
+                                                        weekday: 'short',
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric',
+                                                    })}
+                                                </RouteDate>
+                                            </RouteInfo>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <MetaInfo>
+                                                <User size={16} />
+                                                {route.driver.firstName} {route.driver.lastName}
+                                            </MetaInfo>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <MetaInfo>
+                                                <Truck size={16} />
+                                                {route.vehicle.registrationNumber}
+                                            </MetaInfo>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <StopsInfo>
+                                                <StopsMain>
+                                                    <Users size={16} />
+                                                    {estimatedChildrenCount} {estimatedChildrenCount === 1 ? 'dziecko' : 'dzieci'}
+                                                </StopsMain>
+                                                <StopsSub>
+                                                    <MapPin size={12} />
+                                                    ({route.stopsCount} {route.stopsCount === 1 ? 'punkt' : route.stopsCount < 5 ? 'punkty' : 'punktów'})
+                                                </StopsSub>
+                                            </StopsInfo>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <MetaInfo>
+                                                <Clock size={16} />
+                                                {route.estimatedStartTime} - {route.estimatedEndTime}
+                                            </MetaInfo>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <Badge variant={statusVariants[route.status]}>
+                                                {statusLabels[route.status]}
+                                            </Badge>
+                                        </Table.Cell>
+                                        <Table.Cell>
+                                            <ActionCell>
+                                                <ChevronRight size={20} />
+                                            </ActionCell>
+                                        </Table.Cell>
+                                    </RouteRow>
+                                );
+                            })}
                         </Table.Body>
                     </Table>
 
