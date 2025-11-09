@@ -31,7 +31,7 @@ export const GuardiansList: React.FC<GuardiansListProps> = ({ onCreateClick }) =
 
     const { data, isLoading, error } = useGuardians({
         page,
-        size: 20,
+        size: 10,
         search: searchQuery || undefined,
     });
 

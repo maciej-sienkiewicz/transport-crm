@@ -1,4 +1,4 @@
-// /routes/components/RouteDetail/hooks/useRouteDetailLogic.ts
+// src/features/routes/hooks/useRouteDetailLogic.ts
 
 import {
     useCallback,
@@ -6,8 +6,11 @@ import {
     useState,
     useRef,
 } from 'react';
-import {ExecutionStatus, RouteStatus, RouteStop} from "@/features/routes/types.ts";
-import {useRoute} from "@/features/routes/hooks/useRoute.ts";
+import toast from 'react-hot-toast';
+import { ExecutionStatus, RouteStatus, RouteStop } from '@/features/routes/types';
+import { useRoute } from '@/features/routes/hooks/useRoute';
+import { useDeleteRoute } from '@/features/routes/hooks/useDeleteRoute';
+import { useReorderStops } from '@/features/routes/hooks/useReorderStops';
 
 export const statusLabels: Record<RouteStatus, string> = {
     PLANNED: 'Zaplanowana',
@@ -32,7 +35,7 @@ export const executionStatusLabels: Record<ExecutionStatus, string> = {
     REFUSED: 'Odmowa',
 };
 
-export type ActiveTab = 'stops' | 'children' | 'history';
+export type ActiveTab = 'info' | 'children' | 'history';
 
 export interface ChildSummaryItem {
     childId: string;
@@ -44,24 +47,25 @@ export interface ChildSummaryItem {
 
 interface MapPoint {
     address: string;
-    lat: number;
-    lng: number;
+    lat: number | null;
+    lng: number | null;
     type: 'pickup' | 'dropoff';
     childName: string;
     order: number;
     hasCoordinates: boolean;
 }
 
-const API_KEY = 'AIzaSyAr0qHze3moiMPHo-cwv171b8luH-anyXA'; // Stała dla klucza API Map
+const API_KEY = 'AIzaSyAr0qHze3moiMPHo-cwv171b8luH-anyXA';
 
 export const useRouteDetailLogic = (id: string) => {
-    const { data: route, isLoading } = useRoute(id);
-    const [activeTab, setActiveTab] = useState<ActiveTab>('stops');
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [editedStops, setEditedStops] = useState<RouteStop[]>([]);
+    const { data: route, isLoading, refetch } = useRoute(id);
+    const deleteRoute = useDeleteRoute();
+    const reorderStops = useReorderStops();
+    const [activeTab, setActiveTab] = useState<ActiveTab>('info');
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
     const [activeStopId, setActiveStopId] = useState<string | null>(null);
+    const [isMapModalOpen, setIsMapModalOpen] = useState(false);
     const stopRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
     const sortedStops = useMemo(() => {
@@ -69,7 +73,7 @@ export const useRouteDetailLogic = (id: string) => {
         return [...route.stops].sort((a, b) => a.stopOrder - b.stopOrder);
     }, [route?.stops]);
 
-    const displayStops = isEditMode ? editedStops : sortedStops;
+    const displayStops = sortedStops;
 
     const uniqueChildrenCount = useMemo(() => {
         if (!route?.stops) return 0;
@@ -108,23 +112,22 @@ export const useRouteDetailLogic = (id: string) => {
     const getMapPoints = useCallback((): MapPoint[] => {
         if (!route?.stops) return [];
 
-        return sortedStops
-            .filter(s => s.address.latitude != null && s.address.longitude != null)
-            .map(stop => ({
-                address: `${stop.address.street} ${stop.address.houseNumber}, ${stop.address.city}`,
-                lat: stop.address.latitude!,
-                lng: stop.address.longitude!,
-                type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
-                childName: `${stop.childFirstName} ${stop.childLastName}`,
-                order: stop.stopOrder,
-                hasCoordinates: true,
-            }));
+        return sortedStops.map(stop => ({
+            address: `${stop.address.street} ${stop.address.houseNumber}, ${stop.address.city}`,
+            lat: stop.address.latitude ?? null,
+            lng: stop.address.longitude ?? null,
+            type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
+            childName: `${stop.childFirstName} ${stop.childLastName}`,
+            order: stop.stopOrder,
+            hasCoordinates: stop.address.latitude != null && stop.address.longitude != null,
+        }));
     }, [route?.stops, sortedStops]);
 
     const defaultMapCenter = useMemo(() => {
         const points = getMapPoints();
-        return points.length > 0
-            ? { lat: points[0].lat, lng: points[0].lng }
+        const validPoints = points.filter(p => p.hasCoordinates && p.lat !== null && p.lng !== null);
+        return validPoints.length > 0
+            ? { lat: validPoints[0].lat!, lng: validPoints[0].lng! }
             : { lat: 52.4064, lng: 16.9252 };
     }, [getMapPoints]);
 
@@ -145,25 +148,62 @@ export const useRouteDetailLogic = (id: string) => {
         window.location.href = `/children/${childId}`;
     };
 
-    const handleEditModeToggle = () => {
-        if (!isEditMode) {
-            setEditedStops(sortedStops);
+    const handleOpenMapModal = () => {
+        if (route?.stops.length === 0) {
+            toast.error('Brak stopów do edycji');
+            return;
         }
-        setIsEditMode(!isEditMode);
+        setIsMapModalOpen(true);
     };
 
-    const handleSaveOrder = () => {
-        console.log(
-            'Saving new order:',
-            editedStops.map((s, idx) => ({ ...s, stopOrder: idx + 1 }))
-        );
-        setIsEditMode(false);
+    const handleCloseMapModal = () => {
+        setIsMapModalOpen(false);
     };
 
-    const handleCancelEdit = () => {
-        setEditedStops(sortedStops);
-        setIsEditMode(false);
-    };
+    const handleSaveOrderFromMap = useCallback(async (newMapPoints: MapPoint[]) => {
+        if (!route) return;
+
+        try {
+            console.log('📤 Zapisywanie nowej kolejności z mapy:', newMapPoints);
+
+            // Mapujemy punkty mapy na stopy według childName i type
+            const stopOrders = newMapPoints.map((point, index) => {
+                // Znajdź odpowiadający stop po childName i type
+                const matchingStop = sortedStops.find(
+                    stop =>
+                        `${stop.childFirstName} ${stop.childLastName}` === point.childName &&
+                        ((point.type === 'pickup' && stop.stopType === 'PICKUP') ||
+                            (point.type === 'dropoff' && stop.stopType === 'DROPOFF'))
+                );
+
+                if (!matchingStop) {
+                    console.error('❌ Nie znaleziono stopu dla punktu:', point);
+                    throw new Error(`Nie znaleziono stopu dla: ${point.childName}`);
+                }
+
+                return {
+                    stopId: matchingStop.id,
+                    newOrder: index + 1,
+                };
+            });
+
+            console.log('📤 Wysyłanie stopOrders:', stopOrders);
+
+            await reorderStops.mutateAsync({
+                routeId: route.id,
+                stopOrders,
+            });
+
+            toast.success('Kolejność stopów została zaktualizowana');
+            handleCloseMapModal();
+
+            // Odśwież dane trasy
+            await refetch();
+        } catch (error) {
+            console.error('❌ Błąd podczas zapisywania kolejności:', error);
+            toast.error('Nie udało się zapisać nowej kolejności');
+        }
+    }, [route, sortedStops, reorderStops, refetch]);
 
     const handleStopHover = (stop: RouteStop) => {
         setHoveredStopId(stop.id);
@@ -192,6 +232,29 @@ export const useRouteDetailLogic = (id: string) => {
         [stopRefs]
     );
 
+    const handleDeleteRoute = useCallback(async () => {
+        if (!route) return;
+
+        const confirmDelete = window.confirm(
+            `Czy na pewno chcesz usunąć trasę "${route.routeName}"? Ta operacja jest nieodwracalna.`
+        );
+
+        if (!confirmDelete) return;
+
+        try {
+            await deleteRoute.mutateAsync(route.id);
+            toast.success('Trasa została pomyślnie usunięta');
+
+            // Przekierowanie do listy tras po 1 sekundzie
+            setTimeout(() => {
+                window.location.href = '/routes';
+            }, 1000);
+        } catch (error) {
+            // Błąd jest już obsłużony przez mutation
+            console.error('Błąd podczas usuwania trasy:', error);
+        }
+    }, [route, deleteRoute]);
+
     return {
         // Dane
         route,
@@ -204,9 +267,11 @@ export const useRouteDetailLogic = (id: string) => {
 
         // Stany
         activeTab,
-        isEditMode,
+        isMapModalOpen,
         hoveredStopId,
         activeStopId,
+        isDeletingRoute: deleteRoute.isPending,
+        isSavingOrder: reorderStops.isPending,
 
         // Refy
         stopRefs,
@@ -216,12 +281,13 @@ export const useRouteDetailLogic = (id: string) => {
         handleDriverClick,
         handleVehicleClick,
         handleChildClick,
-        handleEditModeToggle,
-        handleSaveOrder,
-        handleCancelEdit,
+        handleOpenMapModal,
+        handleCloseMapModal,
+        handleSaveOrderFromMap,
         handleStopHover,
         handleStopClick,
         handleMarkerClick,
+        handleDeleteRoute,
         setMap,
 
         // Stałe

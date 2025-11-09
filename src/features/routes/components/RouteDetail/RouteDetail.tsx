@@ -1,31 +1,121 @@
-// /routes/components/RouteDetail/RouteDetail.tsx
+// src/features/routes/components/RouteDetail/RouteDetail.tsx
 
 import React from 'react';
 import styled from 'styled-components';
+import { Edit, Trash2, Map as MapIcon } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
-import { useRouteDetailLogic } from './../../hooks/useRouteDetailLogic';
-import {RouteDetailHeader} from "@/features/routes/components/RouteDetail/RouteDetailHeader.tsx";
-import {RouteMapTile} from "@/features/routes/components/RouteDetail/RouteMapTile.tsx";
-import {RouteDetailTabs} from "@/features/routes/components/RouteDetail/RouteDetailTabs.tsx";
+import { Button } from '@/shared/ui/Button';
+import { useRouteDetailLogic } from '../../hooks/useRouteDetailLogic';
+import { RouteMapTile } from './RouteMapTile';
+import { RouteDetailTabs } from './RouteDetailTabs';
+import { RouteTimeline } from './RouteTimeline';
+import { RouteMapModal } from '../MultiRoutePlanner/RouteMapModal';
 
 const RouteDetailContainer = styled.div`
     max-width: 1600px;
     margin: 0 auto;
     padding: ${({ theme }) => theme.spacing.xl};
-    padding-top: 0; 
+    padding-top: 0;
     display: flex;
     flex-direction: column;
     gap: ${({ theme }) => theme.spacing.lg};
 `;
 
-const TopLayoutGrid = styled.div`
+const MainLayoutGrid = styled.div`
     display: grid;
-    grid-template-columns: 1fr 500px; /* Lewa kolumna na info, Prawa na mapę */
+    grid-template-columns: 1fr 500px;
     gap: ${({ theme }) => theme.spacing.xl};
     align-items: start;
 
     @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
-        grid-template-columns: 1fr; /* Na mniejszych ekranach mapa pod spodem */
+        grid-template-columns: 1fr;
+    }
+`;
+
+const TimelineSection = styled.div`
+    background: white;
+    border-radius: ${({ theme }) => theme.borderRadius['2xl']};
+    border: 1px solid ${({ theme }) => theme.colors.slate[200]};
+    box-shadow: ${({ theme }) => theme.shadows.sm};
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+`;
+
+const TimelineHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: ${({ theme }) => theme.spacing.lg} ${({ theme }) => theme.spacing.xl};
+    border-bottom: 1px solid ${({ theme }) => theme.colors.slate[200]};
+    background: ${({ theme }) => theme.gradients.cardHeader};
+    gap: ${({ theme }) => theme.spacing.md};
+    flex-wrap: wrap;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        padding: ${({ theme }) => theme.spacing.md};
+    }
+`;
+
+const TimelineTitle = styled.h2`
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: ${({ theme }) => theme.colors.slate[900]};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        font-size: 1.125rem;
+    }
+`;
+
+const HeaderActions = styled.div`
+    display: flex;
+    gap: ${({ theme }) => theme.spacing.sm};
+    flex-wrap: wrap;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+        width: 100%;
+
+        button {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+`;
+
+const TimelineContent = styled.div`
+    height: 450px;
+    overflow-y: auto;
+    padding: ${({ theme }) => theme.spacing.xl};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.lg}) {
+        height: 400px;
+    }
+
+    /* Custom scrollbar */
+    &::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+        background: ${({ theme }) => theme.colors.slate[50]};
+        border-radius: ${({ theme }) => theme.borderRadius.sm};
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: linear-gradient(
+                to bottom,
+                ${({ theme }) => theme.colors.slate[300]},
+                ${({ theme }) => theme.colors.slate[400]}
+        );
+        border-radius: ${({ theme }) => theme.borderRadius.sm};
+
+        &:hover {
+            background: linear-gradient(
+                    to bottom,
+                    ${({ theme }) => theme.colors.slate[400]},
+                    ${({ theme }) => theme.colors.slate[500]}
+            );
+        }
     }
 `;
 
@@ -47,10 +137,10 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
         setActiveTab,
         uniqueChildrenCount,
         childrenSummary,
-        isEditMode,
-        handleEditModeToggle,
-        handleSaveOrder,
-        handleCancelEdit,
+        isMapModalOpen,
+        handleOpenMapModal,
+        handleCloseMapModal,
+        handleSaveOrderFromMap,
         handleDriverClick,
         handleVehicleClick,
         handleChildClick,
@@ -59,26 +149,62 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
         activeStopId,
         stopRefs,
         API_KEY,
+        handleDeleteRoute,
+        isDeletingRoute,
     } = useRouteDetailLogic(id);
 
     if (isLoading || !route) {
         return <LoadingSpinner />;
     }
 
+    const showActionButtons = route.status === 'PLANNED';
+
     return (
         <RouteDetailContainer>
-            <TopLayoutGrid>
-                {/* 1. NAGŁÓWEK + AKCJE */}
-                <RouteDetailHeader
-                    route={route}
-                    isEditMode={isEditMode}
-                    onEditToggle={handleEditModeToggle}
-                    onSave={handleSaveOrder}
-                    onCancel={handleCancelEdit}
-                    onDriverClick={handleDriverClick}
-                    onVehicleClick={handleVehicleClick}
-                />
+            <MainLayoutGrid>
+                {/* LEWA KOLUMNA: Przebieg trasy */}
+                <TimelineSection>
+                    <TimelineHeader>
+                        <TimelineTitle>{route.routeName}</TimelineTitle>
 
+                        {showActionButtons && (
+                            <HeaderActions>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={handleOpenMapModal}
+                                >
+                                    <MapIcon size={16} />
+                                    Edytuj kolejność
+                                </Button>
+                                <Button
+                                    variant="danger"
+                                    size="sm"
+                                    onClick={handleDeleteRoute}
+                                    isLoading={isDeletingRoute}
+                                    disabled={isDeletingRoute}
+                                >
+                                    <Trash2 size={16} />
+                                    Usuń trasę
+                                </Button>
+                            </HeaderActions>
+                        )}
+                    </TimelineHeader>
+
+                    <TimelineContent>
+                        <RouteTimeline
+                            displayStops={displayStops}
+                            isEditMode={false}
+                            stopRefs={stopRefs}
+                            activeStopId={activeStopId}
+                            handleChildClick={handleChildClick}
+                            handleStopHover={handleStopHover}
+                            handleStopClick={handleStopClick}
+                        />
+                    </TimelineContent>
+                </TimelineSection>
+
+                {/* PRAWA KOLUMNA: Mapa */}
                 <RouteMapTile
                     mapPoints={mapPoints}
                     defaultMapCenter={defaultMapCenter}
@@ -88,8 +214,9 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
                     displayStops={displayStops}
                     API_KEY={API_KEY}
                 />
-            </TopLayoutGrid>
+            </MainLayoutGrid>
 
+            {/* ZAKŁADKI: Informacje, Dzieci, Historia */}
             <RouteDetailTabs
                 route={route}
                 activeTab={activeTab}
@@ -97,13 +224,32 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
                 displayStops={displayStops}
                 childrenSummary={childrenSummary}
                 uniqueChildrenCount={uniqueChildrenCount}
-                isEditMode={isEditMode}
+                isEditMode={false}
                 stopRefs={stopRefs}
                 activeStopId={activeStopId}
                 handleChildClick={handleChildClick}
                 handleStopHover={handleStopHover}
                 handleStopClick={handleStopClick}
+                handleEditModeToggle={handleOpenMapModal}
+                handleSaveOrder={() => {}}
+                handleCancelEdit={() => {}}
+                handleDriverClick={handleDriverClick}
+                handleVehicleClick={handleVehicleClick}
+                handleDeleteRoute={handleDeleteRoute}
+                isDeletingRoute={isDeletingRoute}
             />
+
+            {/* MODAL DO EDYCJI KOLEJNOŚCI */}
+            {route.stops.length > 0 && (
+                <RouteMapModal
+                    isOpen={isMapModalOpen}
+                    onClose={handleCloseMapModal}
+                    routeName={route.routeName}
+                    points={mapPoints}
+                    apiKey={API_KEY}
+                    onSaveOrder={handleSaveOrderFromMap}
+                />
+            )}
         </RouteDetailContainer>
     );
 };

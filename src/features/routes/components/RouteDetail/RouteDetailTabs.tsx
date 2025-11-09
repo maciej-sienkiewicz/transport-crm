@@ -1,14 +1,18 @@
-// /routes/components/RouteDetail/RouteDetailTabs/RouteDetailTabs.tsx
+// src/features/routes/components/RouteDetail/RouteDetailTabs.tsx
 
 import React, { RefObject } from 'react';
-import { MapPin, Users, History } from 'lucide-react';
+import { Info, Users, History } from 'lucide-react';
 import { TabbedSection, TabsHeader, Tab, TabContent, EmptyState, EmptyIcon, EmptyText } from './RouteDetailTabs.styles';
-import {RouteDetail, RouteStop} from '../../types';
+import { RouteDetail, RouteStop } from '../../types';
 import { ActiveTab, ChildSummaryItem } from '../../hooks/useRouteDetailLogic';
-import {RouteTimeline} from "@/features/routes/components/RouteDetail/RouteTimeline.tsx";
+import { RouteInfoTab } from './RouteInfoTab';
 
-// Komponenty dla sekcji Dzieci i Historii
-const ChildrenTabContent: React.FC<{ childrenSummary: ChildSummaryItem[], uniqueChildrenCount: number, handleChildClick: (id: string) => void }> = ({ childrenSummary, uniqueChildrenCount, handleChildClick }) => {
+// Komponent dla sekcji Dzieci
+const ChildrenTabContent: React.FC<{
+    childrenSummary: ChildSummaryItem[],
+    uniqueChildrenCount: number,
+    handleChildClick: (id: string) => void
+}> = ({ childrenSummary, uniqueChildrenCount, handleChildClick }) => {
     if (uniqueChildrenCount === 0) {
         return (
             <EmptyState>
@@ -18,19 +22,18 @@ const ChildrenTabContent: React.FC<{ childrenSummary: ChildSummaryItem[], unique
         );
     }
 
-    // Zastąpiono uproszczoną wersją dla przejrzystości refaktoryzacji
     return (
         <div style={{ padding: '1rem', color: '#334155' }}>
-            Wyświetlam listę {uniqueChildrenCount} dzieci. (Pełna implementacja ChildrenStatusList w pliku RouteDetailTabs.styles.ts)
-            {/* Pełna lista dzieci z możliwością kliknięcia... */}
+            <p>Wyświetlam listę {uniqueChildrenCount} dzieci.</p>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>
+                (Pełna implementacja listy dzieci będzie dodana w kolejnej iteracji)
+            </p>
         </div>
     );
 };
 
+// Komponent dla sekcji Historii
 const HistoryTabContent: React.FC<{ route: RouteDetail }> = ({ route }) => {
-    // ... Implementacja NotesSection (pobieramy z oryginalnego RouteDetail.tsx)
-    // Ze względu na oszczędność miejsca, skupiam się na strukturze:
-
     if (!route.notes || route.notes.length === 0) {
         return (
             <EmptyState>
@@ -40,11 +43,12 @@ const HistoryTabContent: React.FC<{ route: RouteDetail }> = ({ route }) => {
         );
     }
 
-    // Zastąpiono uproszczoną wersją dla przejrzystości refaktoryzacji
     return (
         <div style={{ padding: '1rem', color: '#334155' }}>
-            Wyświetlam historię zmian: {route.notes.length} wpisów. (Pełna implementacja NotesSection w pliku RouteDetailTabs.styles.ts)
-            {/* Pełna lista notatek... */}
+            <p>Wyświetlam historię zmian: {route.notes.length} wpisów.</p>
+            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>
+                (Pełna implementacja historii zmian będzie dodana w kolejnej iteracji)
+            </p>
         </div>
     );
 };
@@ -62,31 +66,34 @@ interface RouteDetailTabsProps {
     handleChildClick: (id: string) => void;
     handleStopHover: (stop: RouteStop) => void;
     handleStopClick: (stop: RouteStop) => void;
+    handleEditModeToggle: () => void;
+    handleSaveOrder: () => void;
+    handleCancelEdit: () => void;
+    handleDriverClick: () => void;
+    handleVehicleClick: () => void;
+    handleDeleteRoute: () => void;
+    isDeletingRoute: boolean;
 }
 
 export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                                                                     route,
                                                                     activeTab,
                                                                     setActiveTab,
-                                                                    displayStops,
                                                                     childrenSummary,
                                                                     uniqueChildrenCount,
-                                                                    isEditMode,
-                                                                    stopRefs,
-                                                                    activeStopId,
                                                                     handleChildClick,
-                                                                    handleStopHover,
-                                                                    handleStopClick,
+                                                                    handleDriverClick,
+                                                                    handleVehicleClick,
                                                                 }) => {
     return (
         <TabbedSection>
             <TabsHeader>
                 <Tab
-                    $active={activeTab === 'stops'}
-                    onClick={() => setActiveTab('stops')}
+                    $active={activeTab === 'info'}
+                    onClick={() => setActiveTab('info')}
                 >
-                    <MapPin size={18} />
-                    Przebieg Trasy ({route.stops.length})
+                    <Info size={18} />
+                    Informacje
                 </Tab>
                 <Tab
                     $active={activeTab === 'children'}
@@ -105,17 +112,14 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
             </TabsHeader>
 
             <TabContent>
-                {activeTab === 'stops' && (
-                    <RouteTimeline
-                        displayStops={displayStops}
-                        isEditMode={isEditMode}
-                        stopRefs={stopRefs}
-                        activeStopId={activeStopId}
-                        handleChildClick={handleChildClick}
-                        handleStopHover={handleStopHover}
-                        handleStopClick={handleStopClick}
+                {activeTab === 'info' && (
+                    <RouteInfoTab
+                        route={route}
+                        onDriverClick={handleDriverClick}
+                        onVehicleClick={handleVehicleClick}
                     />
                 )}
+
                 {activeTab === 'children' && (
                     <ChildrenTabContent
                         childrenSummary={childrenSummary}
@@ -123,7 +127,10 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                         handleChildClick={handleChildClick}
                     />
                 )}
-                {activeTab === 'history' && <HistoryTabContent route={route} />}
+
+                {activeTab === 'history' && (
+                    <HistoryTabContent route={route} />
+                )}
             </TabContent>
         </TabbedSection>
     );

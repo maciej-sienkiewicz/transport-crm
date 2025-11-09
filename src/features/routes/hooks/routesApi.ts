@@ -16,18 +16,6 @@ interface GetRoutesParams extends PaginationParams {
     driverId?: string;
 }
 
-interface ReorderStopsRequest {
-    stopOrders: Array<{
-        stopId: string;
-        newOrder: number;
-    }>;
-}
-
-interface ReorderStopsResponse {
-    routeId: string;
-    updatedStopsCount: number;
-}
-
 export const routesApi = {
     getAll: async (params: GetRoutesParams): Promise<PageableResponse<RouteListItem>> => {
         const response = await apiClient.get<PageableResponse<RouteListItem>>('/routes', {
@@ -55,17 +43,6 @@ export const routesApi = {
 
     delete: async (id: string): Promise<void> => {
         await apiClient.delete(`/routes/${id}`);
-    },
-
-    reorderStops: async (
-        routeId: string,
-        stopOrders: Array<{ stopId: string; newOrder: number }>
-    ): Promise<ReorderStopsResponse> => {
-        const response = await apiClient.patch<ReorderStopsResponse>(
-            `/routes/${routeId}/stops/reorder`,
-            { stopOrders }
-        );
-        return response.data;
     },
 
     updateStatus: async (
