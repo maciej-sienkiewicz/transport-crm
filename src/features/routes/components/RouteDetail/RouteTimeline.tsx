@@ -1,7 +1,8 @@
 // src/features/routes/components/RouteDetail/RouteTimeline.tsx
 
 import React, { RefObject } from 'react';
-import { GripVertical, Check, MapPin, Phone, Ban, CheckCircle, XCircle, AlertCircle, Clock } from 'lucide-react';
+import { Check, MapPin, Phone, Ban, CheckCircle, XCircle, AlertCircle, Clock, MoreVertical } from 'lucide-react';
+import styled from 'styled-components';
 import { RouteStop } from '../../types';
 import { executionStatusLabels } from '../../hooks/useRouteDetailLogic';
 import {
@@ -24,6 +25,33 @@ import {
     ExecutionDetails,
 } from './RouteTimeline.styles';
 
+const StopActions = styled.button`
+  position: absolute;
+  top: ${({ theme }) => theme.spacing.sm};
+  right: ${({ theme }) => theme.spacing.sm};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: ${({ theme }) => theme.borderRadius.md};
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.slate[400]};
+  cursor: pointer;
+  transition: all ${({ theme }) => theme.transitions.fast};
+  z-index: 10;
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.slate[100]};
+    color: ${({ theme }) => theme.colors.slate[600]};
+  }
+
+  &:active {
+    background: ${({ theme }) => theme.colors.slate[200]};
+  }
+`;
+
 interface RouteTimelineProps {
     displayStops: RouteStop[];
     isEditMode: boolean;
@@ -32,6 +60,8 @@ interface RouteTimelineProps {
     handleChildClick: (id: string) => void;
     handleStopHover: (stop: RouteStop) => void;
     handleStopClick: (stop: RouteStop) => void;
+    handleStopContextMenu?: (e: React.MouseEvent, stop: RouteStop) => void;
+    canEditStops?: boolean;
 }
 
 export const RouteTimeline: React.FC<RouteTimelineProps> = ({
@@ -41,18 +71,21 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                                                 handleChildClick,
                                                                 handleStopHover,
                                                                 handleStopClick,
+                                                                handleStopContextMenu,
+                                                                canEditStops = false,
                                                             }) => {
     return (
         <RouteTimelineContainer>
-            {displayStops.map((stop, index) => {
+            {displayStops.map((stop) => {
                 const isCancelled = !!stop.isCancelled;
                 const isExecuted = !!stop.executionStatus;
                 const isCurrent = false;
+                const canEdit = canEditStops && !isCancelled && !isExecuted;
 
                 return (
                     <TimelineStop
                         key={stop.id}
-                        ref={el => {
+                        ref={(el) => {
                             if (stopRefs && stopRefs.current) {
                                 stopRefs.current[stop.id] = el;
                             }
@@ -71,19 +104,27 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                             $isExecuted={isExecuted}
                             $isCurrent={isCurrent}
                         >
-                            {isExecuted && (
-                                <Check size={10} color="white" />
-                            )}
+                            {isExecuted && <Check size={10} color="white" />}
                         </TimelineDot>
 
                         <TimelineContent $isCancelled={isCancelled}>
+                            {canEdit && handleStopContextMenu && (
+                                <StopActions
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleStopContextMenu(e, stop);
+                                    }}
+                                    title="Więcej opcji"
+                                >
+                                    <MoreVertical size={16} />
+                                </StopActions>
+                            )}
+
                             <StopTypeBadge $type={stop.stopType}>
-                                {stop.stopType === 'PICKUP'
-                                    ? '📍 Odbiór'
-                                    : '🏁 Dowóz'}
+                                {stop.stopType === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}
                             </StopTypeBadge>
                             <ChildName
-                                onClick={e => {
+                                onClick={(e) => {
                                     e.stopPropagation();
                                     handleChildClick(stop.childId);
                                 }}
@@ -100,28 +141,22 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                 />
                                 <div>
                                     {stop.address.label && (
-                                        <AddressLabel>
-                                            {stop.address.label} -{' '}
-                                        </AddressLabel>
+                                        <AddressLabel>{stop.address.label} - </AddressLabel>
                                     )}
-                                    {stop.address.street}{' '}
-                                    {stop.address.houseNumber}
+                                    {stop.address.street} {stop.address.houseNumber}
                                     {stop.address.apartmentNumber &&
                                         `/${stop.address.apartmentNumber}`}
-                                    , {stop.address.postalCode}{' '}
-                                    {stop.address.city}
+                                    , {stop.address.postalCode} {stop.address.city}
                                 </div>
                             </AddressRow>
                             <TimeRow>
                                 <TimeItem>
                                     <Clock size={14} />
-                                    <strong>Planowany:</strong>{' '}
-                                    {stop.estimatedTime}
+                                    <strong>Planowany:</strong> {stop.estimatedTime}
                                 </TimeItem>
                                 <TimeItem>
                                     <Phone size={14} />
-                                    <strong>Opiekun:</strong>{' '}
-                                    {stop.guardian.phone}
+                                    <strong>Opiekun:</strong> {stop.guardian.phone}
                                 </TimeItem>
                             </TimeRow>
                             {stop.isCancelled && (
@@ -134,9 +169,7 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                         {stop.cancelledAt && (
                                             <div>
                                                 <strong>Data:</strong>{' '}
-                                                {new Date(
-                                                    stop.cancelledAt
-                                                ).toLocaleString('pl-PL')}
+                                                {new Date(stop.cancelledAt).toLocaleString('pl-PL')}
                                             </div>
                                         )}
                                         {stop.cancellationReason && (
@@ -145,55 +178,34 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                                     marginTop: '4px',
                                                 }}
                                             >
-                                                <strong>Powód:</strong>{' '}
-                                                {
-                                                    stop.cancellationReason
-                                                }
+                                                <strong>Powód:</strong> {stop.cancellationReason}
                                             </div>
                                         )}
                                     </CancellationDetails>
                                 </CancellationSection>
                             )}
-                            {!stop.isCancelled &&
-                                stop.executionStatus && (
-                                    <ExecutionSection
-                                        $status={stop.executionStatus}
-                                    >
-                                        <ExecutionHeader
-                                            $status={
-                                                stop.executionStatus
-                                            }
-                                        >
-                                            {stop.executionStatus ===
-                                                'COMPLETED' && (
-                                                    <CheckCircle size={16} />
-                                                )}
-                                            {stop.executionStatus ===
-                                                'NO_SHOW' && (
-                                                    <AlertCircle size={16} />
-                                                )}
-                                            {stop.executionStatus ===
-                                                'REFUSED' && (
-                                                    <XCircle size={16} />
-                                                )}
-                                            Wykonanie stopu
-                                        </ExecutionHeader>
-                                        <ExecutionDetails
-                                            $status={
-                                                stop.executionStatus
-                                            }
-                                        >
-                                            <div>
-                                                <strong>Status:</strong>{' '}
-                                                {
-                                                    executionStatusLabels[
-                                                        stop.executionStatus
-                                                        ]
-                                                }
-                                            </div>
-                                        </ExecutionDetails>
-                                    </ExecutionSection>
-                                )}
+                            {!stop.isCancelled && stop.executionStatus && (
+                                <ExecutionSection $status={stop.executionStatus}>
+                                    <ExecutionHeader $status={stop.executionStatus}>
+                                        {stop.executionStatus === 'COMPLETED' && (
+                                            <CheckCircle size={16} />
+                                        )}
+                                        {stop.executionStatus === 'NO_SHOW' && (
+                                            <AlertCircle size={16} />
+                                        )}
+                                        {stop.executionStatus === 'REFUSED' && (
+                                            <XCircle size={16} />
+                                        )}
+                                        Wykonanie stopu
+                                    </ExecutionHeader>
+                                    <ExecutionDetails $status={stop.executionStatus}>
+                                        <div>
+                                            <strong>Status:</strong>{' '}
+                                            {executionStatusLabels[stop.executionStatus]}
+                                        </div>
+                                    </ExecutionDetails>
+                                </ExecutionSection>
+                            )}
                         </TimelineContent>
                     </TimelineStop>
                 );

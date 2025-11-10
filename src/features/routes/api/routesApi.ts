@@ -16,13 +16,6 @@ interface GetRoutesParams extends PaginationParams {
     driverId?: string;
 }
 
-interface ReorderStopsRequest {
-    stopOrders: Array<{
-        stopId: string;
-        newOrder: number;
-    }>;
-}
-
 interface ReorderStopsResponse {
     routeId: string;
     updatedStopsCount: number;

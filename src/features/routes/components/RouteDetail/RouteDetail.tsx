@@ -1,8 +1,8 @@
 // src/features/routes/components/RouteDetail/RouteDetail.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Edit, Trash2, Map as MapIcon } from 'lucide-react';
+import { Trash2, Map as MapIcon, Plus } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Button } from '@/shared/ui/Button';
 import { useRouteDetailLogic } from '../../hooks/useRouteDetailLogic';
@@ -10,6 +10,12 @@ import { RouteMapTile } from './RouteMapTile';
 import { RouteDetailTabs } from './RouteDetailTabs';
 import { RouteTimeline } from './RouteTimeline';
 import { RouteMapModal } from '../MultiRoutePlanner/RouteMapModal';
+import { AddChildToRouteModal } from '../AddChildToRouteModal/AddChildToRouteModal';
+import { EditStopModal } from '../EditStopModal/EditStopModal';
+import { StopContextMenu } from '../StopContextMenu/StopContextMenu';
+import { RouteStop } from '../../types';
+import toast from 'react-hot-toast';
+import {useDeleteScheduleFromRoute} from "@/features/routes/hooks/useDeleteScheduleFromRoute.ts";
 
 const RouteDetailContainer = styled.div`
     max-width: 1600px;
@@ -91,7 +97,6 @@ const TimelineContent = styled.div`
         height: 400px;
     }
 
-    /* Custom scrollbar */
     &::-webkit-scrollbar {
         width: 8px;
     }
@@ -153,6 +158,69 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
         isDeletingRoute,
     } = useRouteDetailLogic(id);
 
+    const [isAddChildModalOpen, setIsAddChildModalOpen] = useState(false);
+    const [isEditStopModalOpen, setIsEditStopModalOpen] = useState(false);
+    const [contextMenu, setContextMenu] = useState<{
+        x: number;
+        y: number;
+        stop: RouteStop;
+    } | null>(null);
+    const [selectedStop, setSelectedStop] = useState<RouteStop | null>(null);
+
+    const deleteSchedule = useDeleteScheduleFromRoute();
+
+    const handleStopContextMenu = (e: React.MouseEvent, stop: RouteStop) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (stop.isCancelled || stop.executionStatus) {
+            toast.error('Nie można edytować anulowanego lub wykonanego stopu');
+            return;
+        }
+
+        setContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            stop,
+        });
+    };
+
+    const handleEditStop = () => {
+        if (contextMenu) {
+            setSelectedStop(contextMenu.stop);
+            setIsEditStopModalOpen(true);
+            setContextMenu(null);
+        }
+    };
+
+    const handleDeleteStop = async () => {
+        if (!contextMenu || !route) return;
+
+        const stop = contextMenu.stop;
+        setContextMenu(null);
+
+        const confirmDelete = window.confirm(
+            `Czy na pewno chcesz usunąć dziecko "${stop.childFirstName} ${stop.childLastName}" z trasy? 
+      
+Zostaną usunięte oba punkty (odbiór i dowóz).`
+        );
+
+        if (!confirmDelete) return;
+
+        try {
+            await deleteSchedule.mutateAsync({
+                routeId: route.id,
+                scheduleId: stop.scheduleId,
+            });
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+        }
+    };
+
+    const maxStopOrder = displayStops.length > 0
+        ? Math.max(...displayStops.map((s) => s.stopOrder))
+        : 0;
+
     if (isLoading || !route) {
         return <LoadingSpinner />;
     }
@@ -162,13 +230,20 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
     return (
         <RouteDetailContainer>
             <MainLayoutGrid>
-                {/* LEWA KOLUMNA: Przebieg trasy */}
                 <TimelineSection>
                     <TimelineHeader>
                         <TimelineTitle>{route.routeName}</TimelineTitle>
 
                         {showActionButtons && (
                             <HeaderActions>
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    onClick={() => setIsAddChildModalOpen(true)}
+                                >
+                                    <Plus size={16} />
+                                    Dodaj dziecko
+                                </Button>
                                 <Button
                                     variant="secondary"
                                     size="sm"
@@ -200,11 +275,12 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
                             handleChildClick={handleChildClick}
                             handleStopHover={handleStopHover}
                             handleStopClick={handleStopClick}
+                            handleStopContextMenu={handleStopContextMenu}
+                            canEditStops={showActionButtons}
                         />
                     </TimelineContent>
                 </TimelineSection>
 
-                {/* PRAWA KOLUMNA: Mapa */}
                 <RouteMapTile
                     mapPoints={mapPoints}
                     defaultMapCenter={defaultMapCenter}
@@ -216,7 +292,6 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
                 />
             </MainLayoutGrid>
 
-            {/* ZAKŁADKI: Informacje, Dzieci, Historia */}
             <RouteDetailTabs
                 route={route}
                 activeTab={activeTab}
@@ -239,7 +314,6 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
                 isDeletingRoute={isDeletingRoute}
             />
 
-            {/* MODAL DO EDYCJI KOLEJNOŚCI */}
             {route.stops.length > 0 && (
                 <RouteMapModal
                     isOpen={isMapModalOpen}
@@ -248,6 +322,34 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
                     points={mapPoints}
                     apiKey={API_KEY}
                     onSaveOrder={handleSaveOrderFromMap}
+                />
+            )}
+
+            <AddChildToRouteModal
+                isOpen={isAddChildModalOpen}
+                onClose={() => setIsAddChildModalOpen(false)}
+                routeId={route.id}
+                routeDate={route.date}
+                maxStopOrder={maxStopOrder}
+            />
+
+            <EditStopModal
+                isOpen={isEditStopModalOpen}
+                onClose={() => {
+                    setIsEditStopModalOpen(false);
+                    setSelectedStop(null);
+                }}
+                routeId={route.id}
+                stop={selectedStop}
+            />
+
+            {contextMenu && (
+                <StopContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    onEdit={handleEditStop}
+                    onDelete={handleDeleteStop}
+                    onClose={() => setContextMenu(null)}
                 />
             )}
         </RouteDetailContainer>
