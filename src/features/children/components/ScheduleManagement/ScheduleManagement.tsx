@@ -1,6 +1,5 @@
-// src/features/children/components/ScheduleManagement/ScheduleManagement.tsx
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Clock, ChevronDown, ChevronUp, Home, School } from 'lucide-react';
+import { Plus, Edit2, Trash2, Clock, ChevronDown, ChevronUp, Home, School, TrendingUp } from 'lucide-react';
 import styled from 'styled-components';
 import { useSchedules } from '../../hooks/useSchedules';
 import { useSchedule } from '../../hooks/useSchedule';
@@ -12,6 +11,8 @@ import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/Badge';
 import { Modal } from '@/shared/ui/Modal';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
+import { RouteHistoryList } from '@/features/routes/components/RouteHistoryList';
+import { UpcomingRoutesList } from '@/features/routes/components/UpcomingRoutesList';
 
 const SectionHeader = styled.div`
     display: flex;
@@ -249,6 +250,69 @@ const LoadingDetails = styled.div`
     color: ${({ theme }) => theme.colors.slate[500]};
 `;
 
+const RoutesSection = styled.div<{ $isExpanded: boolean }>`
+    max-height: ${({ $isExpanded }) => ($isExpanded ? '3000px' : '0')};
+    opacity: ${({ $isExpanded }) => ($isExpanded ? '1' : '0')};
+    overflow: hidden;
+    transition: all ${({ theme }) => theme.transitions.slow};
+    grid-column: 1 / -1;
+`;
+
+const RoutesSectionContent = styled.div`
+    padding-top: ${({ theme }) => theme.spacing.xl};
+    border-top: 2px solid ${({ theme }) => theme.colors.slate[200]};
+`;
+
+const RoutesSectionHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const RoutesSectionTitle = styled.h4`
+    font-size: 1rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[900]};
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.sm};
+`;
+
+const TabsContainer = styled.div`
+    display: flex;
+    gap: ${({ theme }) => theme.spacing.xs};
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
+    border-bottom: 2px solid ${({ theme }) => theme.colors.slate[200]};
+`;
+
+const Tab = styled.button<{ $active: boolean }>`
+    padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.lg};
+    background: ${({ $active, theme }) =>
+    $active ? theme.gradients.primaryButton : 'transparent'};
+    color: ${({ $active }) => ($active ? 'white' : '#64748b')};
+    border: none;
+    border-radius: ${({ theme }) => theme.borderRadius.lg} ${({ theme }) => theme.borderRadius.lg} 0 0;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    transition: all ${({ theme }) => theme.transitions.normal};
+
+    &:hover {
+        background: ${({ $active, theme }) =>
+    $active ? theme.gradients.primaryButton : theme.colors.slate[100]};
+    }
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+        padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+        font-size: 0.875rem;
+    }
+`;
+
+const ShowRoutesButton = styled(Button)`
+    margin-top: ${({ theme }) => theme.spacing.md};
+`;
+
 interface ScheduleManagementProps {
     childId: string;
 }
@@ -267,6 +331,8 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
     const [expandedScheduleId, setExpandedScheduleId] = useState<string | null>(null);
+    const [routesExpandedScheduleId, setRoutesExpandedScheduleId] = useState<string | null>(null);
+    const [activeRoutesTab, setActiveRoutesTab] = useState<'history' | 'upcoming'>('history');
 
     const { data: schedulesData, isLoading } = useSchedules(childId);
     const { data: scheduleDetails, isLoading: isLoadingDetails } = useSchedule(
@@ -311,12 +377,19 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
             if (expandedScheduleId === scheduleId) {
                 setExpandedScheduleId(null);
             }
+            if (routesExpandedScheduleId === scheduleId) {
+                setRoutesExpandedScheduleId(null);
+            }
             await deleteSchedule.mutateAsync(scheduleId);
         }
     };
 
     const toggleExpand = (scheduleId: string) => {
         setExpandedScheduleId(expandedScheduleId === scheduleId ? null : scheduleId);
+    };
+
+    const toggleRoutesExpand = (scheduleId: string) => {
+        setRoutesExpandedScheduleId(routesExpandedScheduleId === scheduleId ? null : scheduleId);
     };
 
     const handleEdit = (scheduleId: string) => {
@@ -348,6 +421,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
                 <SchedulesList>
                     {schedules.map((schedule) => {
                         const isExpanded = expandedScheduleId === schedule.id;
+                        const isRoutesExpanded = routesExpandedScheduleId === schedule.id;
                         const detailsToShow = isExpanded ? scheduleDetails : null;
 
                         return (
@@ -472,6 +546,51 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
                                                             </InstructionsText>
                                                         </SpecialInstructions>
                                                     )}
+
+                                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
+                                                        <ShowRoutesButton
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            onClick={() => toggleRoutesExpand(schedule.id)}
+                                                        >
+                                                            <TrendingUp size={16} />
+                                                            {isRoutesExpanded
+                                                                ? 'Ukryj trasy'
+                                                                : 'Zobacz trasy (Historia i Nadchodzące)'}
+                                                        </ShowRoutesButton>
+                                                    </div>
+
+                                                    <RoutesSection $isExpanded={isRoutesExpanded}>
+                                                        <RoutesSectionContent>
+                                                            <RoutesSectionHeader>
+                                                                <RoutesSectionTitle>
+                                                                    <TrendingUp size={20} />
+                                                                    Trasy harmonogramu
+                                                                </RoutesSectionTitle>
+                                                            </RoutesSectionHeader>
+
+                                                            <TabsContainer>
+                                                                <Tab
+                                                                    $active={activeRoutesTab === 'history'}
+                                                                    onClick={() => setActiveRoutesTab('history')}
+                                                                >
+                                                                    Historia
+                                                                </Tab>
+                                                                <Tab
+                                                                    $active={activeRoutesTab === 'upcoming'}
+                                                                    onClick={() => setActiveRoutesTab('upcoming')}
+                                                                >
+                                                                    Nadchodzące
+                                                                </Tab>
+                                                            </TabsContainer>
+
+                                                            {activeRoutesTab === 'history' ? (
+                                                                <RouteHistoryList scheduleId={schedule.id} />
+                                                            ) : (
+                                                                <UpcomingRoutesList scheduleId={schedule.id} />
+                                                            )}
+                                                        </RoutesSectionContent>
+                                                    </RoutesSection>
                                                 </DetailsContent>
                                             ) : null}
                                         </>

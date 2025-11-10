@@ -1,5 +1,3 @@
-// src/features/routes/types.ts
-
 export type RouteStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
 export type StopType = 'PICKUP' | 'DROPOFF';
@@ -29,7 +27,6 @@ export interface Guardian {
     phone: string;
 }
 
-// RouteStop z GET /api/routes/{id}
 export interface RouteStop {
     id: string;
     stopOrder: number;
@@ -51,7 +48,6 @@ export interface RouteStop {
     transportNeeds: TransportNeeds;
 }
 
-// CreateStopRequest (używane przy tworzeniu trasy)
 export interface CreateStopRequest {
     stopOrder: number;
     stopType: StopType;
@@ -61,7 +57,6 @@ export interface CreateStopRequest {
     address: AddressWithCoordinates;
 }
 
-// CreateRouteRequest (POST /api/routes)
 export interface CreateRouteRequest {
     routeName: string;
     date: string;
@@ -72,7 +67,6 @@ export interface CreateRouteRequest {
     stops: CreateStopRequest[];
 }
 
-// RouteListItem (GET /api/routes)
 export interface RouteListItem {
     id: string;
     routeName: string;
@@ -93,7 +87,6 @@ export interface RouteListItem {
     stopsCount: number;
 }
 
-// RouteDetail (GET /api/routes/{id})
 export interface RouteDetail {
     id: string;
     companyId: string;
@@ -131,7 +124,6 @@ export interface RouteDetail {
     updatedAt: string;
 }
 
-// ChildSchedule (używane w MultiRoutePlanner)
 export interface ChildSchedule {
     id: string;
     name: string;
@@ -141,7 +133,6 @@ export interface ChildSchedule {
     dropoffAddress: AddressWithCoordinates;
 }
 
-// AvailableChild (z GET /api/routes/available-children)
 export interface AvailableChild {
     id: string;
     firstName: string;
@@ -153,7 +144,6 @@ export interface AvailableChild {
     guardian: Guardian;
 }
 
-// LocalRouteStop - używane wewnętrznie w MultiRoutePlanner
 export interface LocalRouteStop {
     id: string;
     type: StopType;
@@ -167,4 +157,58 @@ export interface LocalRouteStop {
     guardianName: string;
     guardianPhone: string;
     transportNeeds: TransportNeeds;
+}
+
+export interface ChildStopInfo {
+    stopId: string;
+    stopOrder: number;
+    stopType: StopType;
+    childFirstName: string;
+    childLastName: string;
+    estimatedTime: string;
+    address: AddressWithCoordinates;
+}
+
+export interface RouteHistoryItem {
+    id: string;
+    routeName: string;
+    date: string;
+    status: 'COMPLETED' | 'CANCELLED';
+    driver: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
+    vehicle: {
+        id: string;
+        registrationNumber: string;
+        model: string;
+    };
+    estimatedStartTime: string;
+    estimatedEndTime: string;
+    actualStartTime: string;
+    actualEndTime: string;
+    stopsCount: number;
+    completedStopsCount: number;
+}
+
+export interface UpcomingRouteItem {
+    id: string;
+    routeName: string;
+    date: string;
+    status: 'PLANNED' | 'IN_PROGRESS';
+    driver: {
+        id: string;
+        firstName: string;
+        lastName: string;
+    };
+    vehicle: {
+        id: string;
+        registrationNumber: string;
+        model: string;
+    };
+    estimatedStartTime: string;
+    estimatedEndTime: string;
+    stopsCount: number;
+    childStops: ChildStopInfo[];
 }
