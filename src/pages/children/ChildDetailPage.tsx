@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
 import { ChildDetail } from '@/features/children/components/ChildDetail';
 import { ChildForm } from '@/features/children/components/ChildForm';
 import { useChild } from '@/features/children/hooks/useChild';
 import { useUpdateChild } from '@/features/children/hooks/useUpdateChild';
 import { Card } from '@/shared/ui/Card';
 import { UpdateChildFormData } from '@/features/children/lib/validation';
+import styled from 'styled-components';
 
 const PageContainer = styled.div`
-  max-width: 1400px;
+  min-height: 100vh;
+  background: ${({ theme }) => theme.colors.slate[50]};
+`;
+
+const FormContainer = styled.div`
+  max-width: 1200px;
   margin: 0 auto;
   padding: ${({ theme }) => theme.spacing.xl};
 
@@ -19,6 +24,11 @@ const PageContainer = styled.div`
 
 const PageHeader = styled.div`
   margin-bottom: ${({ theme }) => theme.spacing.xl};
+  padding: ${({ theme }) => theme.spacing.xl};
+  background: white;
+  border-radius: ${({ theme }) => theme.borderRadius['2xl']};
+  box-shadow: ${({ theme }) => theme.shadows.sm};
+  border: 1px solid ${({ theme }) => theme.colors.slate[200]};
 `;
 
 const PageTitle = styled.h1`
@@ -52,36 +62,41 @@ export const ChildDetailPage: React.FC<ChildDetailPageProps> = ({ id }) => {
     };
 
     const handleBack = () => {
-        window.location.href = '/children';
+        window.history.pushState({}, '', '/children');
+        window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
     if (isEditing && child) {
         return (
             <PageContainer>
-                <PageHeader>
-                    <PageTitle>Edytuj dziecko</PageTitle>
-                    <PageDescription>
-                        Zaktualizuj dane dziecka {child.firstName} {child.lastName}
-                    </PageDescription>
-                </PageHeader>
-                <Card>
-                    <Card.Content>
-                        <ChildForm
-                            mode="edit"
-                            initialData={child}
-                            onSubmit={handleUpdate}
-                            onCancel={() => setIsEditing(false)}
-                            isLoading={updateChild.isPending}
-                        />
-                    </Card.Content>
-                </Card>
+                <FormContainer>
+                    <PageHeader>
+                        <PageTitle>Edytuj dziecko</PageTitle>
+                        <PageDescription>
+                            Zaktualizuj dane dziecka {child.firstName} {child.lastName}
+                        </PageDescription>
+                    </PageHeader>
+                    <Card>
+                        <Card.Content>
+                            <ChildForm
+                                mode="edit"
+                                initialData={child}
+                                onSubmit={handleUpdate}
+                                onCancel={() => setIsEditing(false)}
+                                isLoading={updateChild.isPending}
+                            />
+                        </Card.Content>
+                    </Card>
+                </FormContainer>
             </PageContainer>
         );
     }
 
     return (
-        <PageContainer>
-            <ChildDetail id={id} onEdit={() => setIsEditing(true)} onBack={handleBack} />
-        </PageContainer>
+        <ChildDetail
+            id={id}
+            onEdit={() => setIsEditing(true)}
+            onBack={handleBack}
+        />
     );
 };
