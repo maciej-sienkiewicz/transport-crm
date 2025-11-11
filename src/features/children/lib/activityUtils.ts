@@ -53,6 +53,7 @@ export const activityCategoryLabels: Record<ActivityCategory, string> = {
     SCHEDULE: 'Harmonogram',
     DRIVER: 'Kierowca',
     VEHICLE: 'Pojazd',
+    ABSENCE: "Nieobecność"
 };
 
 export const getActivityColor = (category: ActivityCategory): string => {

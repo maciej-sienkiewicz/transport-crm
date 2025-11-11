@@ -5,7 +5,8 @@ export type ActivityCategory =
     | 'ROUTE'
     | 'SCHEDULE'
     | 'DRIVER'
-    | 'VEHICLE';
+    | 'VEHICLE'
+    | 'ABSENCE';
 
 export type ActivityType =
 // Child activities

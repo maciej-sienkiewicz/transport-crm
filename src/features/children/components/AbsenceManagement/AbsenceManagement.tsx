@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { Plus, Calendar, Clock, User, FileText, CalendarOff } from 'lucide-react';
+import { Plus, Calendar, Clock, FileText, CalendarOff } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/Badge';
-import {
+import { useChildAbsences } from '../../hooks/useChildAbsences';
+import { useCancelAbsence } from '../../hooks/useCancelAbsence';
+import { Absence, AbsenceStatus, AbsenceType } from '@/shared/types/absence';
+import { CreateAbsenceModal } from '../CreateAbsenceModal/CreateAbsenceModal';
+import { CancelAbsenceModal } from '../CancelAbsenceModal/CancelAbsenceModal';
+import { // Importy stylów pozostawione w jednym bloku
     Container,
     Header,
     SectionTitle,
@@ -26,62 +31,46 @@ interface AbsenceManagementProps {
     childId: string;
 }
 
-interface MockAbsence {
-    id: string;
-    type: 'FULL_DAY' | 'SPECIFIC_ROUTE';
-    startDate: string;
-    endDate: string;
-    scheduleName?: string;
-    reason?: string;
-    status: 'PLANNED' | 'ACTIVE' | 'COMPLETED';
-    reportedBy: {
-        name: string;
-        timestamp: string;
-    };
-}
-
 export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId }) => {
+    // Stan do zarządzania modalem tworzenia nieobecności
     const [showCreateModal, setShowCreateModal] = useState(false);
+    // Stan do zarządzania modalem anulowania nieobecności (przechowuje obiekt nieobecności)
+    const [absenceToCancel, setAbsenceToCancel] = useState<Absence | null>(null);
 
-    const mockAbsences: MockAbsence[] = [
-        {
-            id: '1',
-            type: 'FULL_DAY',
-            startDate: '2025-01-15',
-            endDate: '2025-01-15',
-            reason: 'Wizyta lekarska',
-            status: 'PLANNED',
-            reportedBy: {
-                name: 'Anna Nowak',
-                timestamp: new Date(Date.now() - 2 * 3600000).toISOString(),
-            },
-        },
-        {
-            id: '2',
-            type: 'SPECIFIC_ROUTE',
-            startDate: '2025-01-18',
-            endDate: '2025-01-20',
-            scheduleName: 'Trasa poranna - Dzielnica Północ',
-            reason: 'Wyjazd rodzinny',
-            status: 'PLANNED',
-            reportedBy: {
-                name: 'Anna Nowak',
-                timestamp: new Date(Date.now() - 5 * 86400000).toISOString(),
-            },
-        },
-        {
-            id: '3',
-            type: 'FULL_DAY',
-            startDate: '2025-01-12',
-            endDate: '2025-01-12',
-            reason: 'Choroba',
-            status: 'COMPLETED',
-            reportedBy: {
-                name: 'Anna Nowak',
-                timestamp: new Date(Date.now() - 3 * 86400000).toISOString(),
-            },
-        },
-    ];
+    // 1. Użycie prawdziwego hooka do pobierania nieobecności
+    const { data, isLoading } = useChildAbsences(childId); //
+    const absences = data?.absences || [];
+
+    // 2. Użycie prawdziwego hooka do anulowania nieobecności (aby śledzić stan ładowania)
+    const cancelAbsenceMutation = useCancelAbsence(childId); //
+    const isCancelling = cancelAbsenceMutation.isPending;
+
+    // Funkcje do zarządzania modalem anulowania
+    const handleOpenCancelModal = (absence: Absence) => {
+        setAbsenceToCancel(absence);
+    };
+
+    const handleCloseCancelModal = () => {
+        setAbsenceToCancel(null);
+    };
+
+    const handleCloseCreateModal = () => {
+        setShowCreateModal(false);
+    };
+
+    // --- Logika sortowania i filtrowania ---
+
+    // Nadchodzące (zaplanowane lub aktywne)
+    const upcomingAbsences = absences
+        .filter((a) => a.status === 'PLANNED' || a.status === 'ACTIVE') //
+        .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    // Zakończone lub anulowane (historia)
+    const completedAbsences = absences
+        .filter((a) => a.status === 'COMPLETED' || a.status === 'CANCELLED') //
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+
+    // --- Funkcje pomocnicze widoku (zaktualizowane do obsługi typu Absence) ---
 
     const formatDate = (dateString: string): string => {
         const date = new Date(dateString);
@@ -102,8 +91,9 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
         });
     };
 
-    const getUrgency = (absence: MockAbsence): 'urgent' | 'upcoming' | 'planned' | 'completed' => {
+    const getUrgency = (absence: Absence): 'urgent' | 'upcoming' | 'planned' | 'completed' | 'cancelled' => {
         if (absence.status === 'COMPLETED') return 'completed';
+        if (absence.status === 'CANCELLED') return 'cancelled';
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -111,12 +101,12 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
         startDate.setHours(0, 0, 0, 0);
         const diffDays = Math.floor((startDate.getTime() - today.getTime()) / 86400000);
 
-        if (diffDays <= 1) return 'urgent';
-        if (diffDays <= 7) return 'upcoming';
+        if (diffDays <= 1 && diffDays >= 0) return 'urgent'; // Dzisiaj/Jutro lub w trakcie trwania
+        if (diffDays <= 7 && diffDays > 1) return 'upcoming';
         return 'planned';
     };
 
-    const getDateLabel = (absence: MockAbsence): string => {
+    const getDateLabel = (absence: Absence): string => {
         if (absence.startDate === absence.endDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -131,19 +121,47 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
         return `${formatDate(absence.startDate)} - ${formatDate(absence.endDate)}`;
     };
 
-    const upcomingAbsences = mockAbsences.filter((a) => a.status === 'PLANNED');
-    const completedAbsences = mockAbsences.filter((a) => a.status === 'COMPLETED');
+    const getStatusBadge = (status: AbsenceStatus) => { //
+        switch (status) {
+            case 'PLANNED':
+                return <Badge variant="warning">Zaplanowana</Badge>; //
+            case 'ACTIVE':
+                return <Badge variant="primary">Aktywna</Badge>;
+            case 'COMPLETED':
+                return <Badge variant="default">Zakończona</Badge>; //
+            case 'CANCELLED':
+                return <Badge variant="danger">Anulowana</Badge>; //
+            default:
+                return null;
+        }
+    };
+
+    const getTypeBadge = (type: AbsenceType, scheduleName: string | null) => { //
+        return type === 'FULL_DAY' ? (
+            <Badge variant="warning">Cały dzień</Badge> //
+        ) : (
+            <Badge variant="primary">{scheduleName || 'Specyficzny harmonogram'}</Badge> //
+        );
+    };
+
+    if (isLoading) {
+        return (
+            <Container>
+                <p>Ładowanie nieobecności...</p>
+            </Container>
+        );
+    }
 
     return (
         <Container>
             <Header>
-                <Button size="sm" onClick={() => setShowCreateModal(true)}>
+                <Button size="sm" onClick={() => setShowCreateModal(true)} disabled={isCancelling}>
                     <Plus size={16} />
                     Zgłoś nieobecność
                 </Button>
             </Header>
 
-            {upcomingAbsences.length === 0 && completedAbsences.length === 0 ? (
+            {absences.length === 0 ? (
                 <EmptyState>
                     <EmptyIcon>
                         <CalendarOff size={32} />
@@ -169,10 +187,17 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
                                                 {getDateLabel(absence)}
                                             </AbsenceDate>
                                             <AbsenceActions>
-                                                <Button size="sm" variant="secondary">
+                                                <Button size="sm" variant="secondary" disabled={isCancelling}>
                                                     Edytuj
                                                 </Button>
-                                                <Button size="sm" variant="danger">
+                                                <Button
+                                                    size="sm"
+                                                    variant="danger"
+                                                    onClick={() => handleOpenCancelModal(absence)}
+                                                    // Dezaktywuj przycisk, jeśli trwa anulowanie innej nieobecności
+                                                    isLoading={isCancelling && absenceToCancel?.id === absence.id}
+                                                    disabled={isCancelling && absenceToCancel?.id !== absence.id}
+                                                >
                                                     Anuluj
                                                 </Button>
                                             </AbsenceActions>
@@ -182,28 +207,24 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
                                             <InfoRow>
                                                 <InfoLabel>Typ:</InfoLabel>
                                                 <InfoValue>
-                                                    {absence.type === 'FULL_DAY' ? (
-                                                        <Badge variant="warning">Cały dzień</Badge>
-                                                    ) : (
-                                                        <Badge variant="primary">{absence.scheduleName}</Badge>
-                                                    )}
+                                                    {getTypeBadge(absence.type, absence.scheduleName)}
                                                 </InfoValue>
                                             </InfoRow>
 
                                             {absence.reason && (
                                                 <InfoRow>
                                                     <FileText size={16} />
-                                                    <InfoLabel>Powód:</InfoLabel>
+                                                    <InfoLabel>Powód zgłoszenia:</InfoLabel>
                                                     <InfoValue>{absence.reason}</InfoValue>
                                                 </InfoRow>
                                             )}
 
                                             <InfoRow>
                                                 <Clock size={16} />
-                                                <InfoLabel>Zgłoszone:</InfoLabel>
+                                                <InfoLabel>Zgłoszono:</InfoLabel>
                                                 <InfoValue>
-                                                    {formatDateTime(absence.reportedBy.timestamp)} przez{' '}
-                                                    {absence.reportedBy.name}
+                                                    {formatDateTime(absence.createdAt)}
+                                                    {/* W typie Absence nie ma pola 'name' osoby zgłaszającej */}
                                                 </InfoValue>
                                             </InfoRow>
                                         </AbsenceInfo>
@@ -218,17 +239,17 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
                     {completedAbsences.length > 0 && (
                         <>
                             <SectionTitle>
-                                📊 Historia (ostatnie 30 dni)
+                                📊 Historia ({completedAbsences.length})
                             </SectionTitle>
                             <AbsencesList>
                                 {completedAbsences.map((absence) => (
-                                    <AbsenceCard key={absence.id} $urgency="completed">
+                                    <AbsenceCard key={absence.id} $urgency={getUrgency(absence)}>
                                         <AbsenceHeader>
                                             <AbsenceDate>
                                                 <Calendar size={20} />
                                                 {getDateLabel(absence)}
                                             </AbsenceDate>
-                                            <Badge variant="default">Zakończona</Badge>
+                                            {getStatusBadge(absence.status)}
                                         </AbsenceHeader>
 
                                         <AbsenceInfo>
@@ -244,8 +265,16 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
                                             {absence.reason && (
                                                 <InfoRow>
                                                     <FileText size={16} />
-                                                    <InfoLabel>Powód:</InfoLabel>
+                                                    <InfoLabel>Powód zgłoszenia:</InfoLabel>
                                                     <InfoValue>{absence.reason}</InfoValue>
+                                                </InfoRow>
+                                            )}
+
+                                            {absence.status === 'CANCELLED' && absence.cancellationReason && (
+                                                <InfoRow>
+                                                    <FileText size={16} />
+                                                    <InfoLabel>Powód anulowania:</InfoLabel>
+                                                    <InfoValue>{absence.cancellationReason}</InfoValue>
                                                 </InfoRow>
                                             )}
                                         </AbsenceInfo>
@@ -256,6 +285,20 @@ export const AbsenceManagement: React.FC<AbsenceManagementProps> = ({ childId })
                     )}
                 </>
             )}
+
+            {/* Modale */}
+            <CreateAbsenceModal
+                isOpen={showCreateModal}
+                onClose={handleCloseCreateModal}
+                childId={childId}
+            /> {/* */}
+
+            <CancelAbsenceModal
+                isOpen={!!absenceToCancel}
+                onClose={handleCloseCancelModal}
+                absence={absenceToCancel}
+                childId={childId}
+            /> {/* */}
         </Container>
     );
 };
