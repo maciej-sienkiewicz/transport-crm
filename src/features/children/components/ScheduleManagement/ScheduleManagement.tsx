@@ -317,6 +317,7 @@ interface ScheduleManagementProps {
     childId: string;
 }
 
+const daysOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const dayLabels: Record<string, string> = {
     MONDAY: 'Pon',
     TUESDAY: 'Wt',
@@ -434,11 +435,14 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
                                             {schedule.pickupTime} → {schedule.dropoffTime}
                                         </ScheduleTime>
                                         <DaysList>
-                                            {schedule.days.map((day) => (
-                                                <Badge key={day} variant="primary">
-                                                    {dayLabels[day]}
-                                                </Badge>
-                                            ))}
+                                            {[...schedule.days]
+                                                .sort((a, b) => daysOrder.indexOf(a) - daysOrder.indexOf(b))
+                                                .map((day) => (
+                                                    <Badge key={day} variant="primary">
+                                                        {dayLabels[day]}
+                                                    </Badge>
+                                                ))
+                                            }
                                         </DaysList>
                                     </ScheduleMainInfo>
                                     <ScheduleActions>
@@ -547,20 +551,7 @@ export const ScheduleManagement: React.FC<ScheduleManagementProps> = ({ childId 
                                                         </SpecialInstructions>
                                                     )}
 
-                                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
-                                                        <ShowRoutesButton
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            onClick={() => toggleRoutesExpand(schedule.id)}
-                                                        >
-                                                            <TrendingUp size={16} />
-                                                            {isRoutesExpanded
-                                                                ? 'Ukryj trasy'
-                                                                : 'Zobacz trasy (Historia i Nadchodzące)'}
-                                                        </ShowRoutesButton>
-                                                    </div>
-
-                                                    <RoutesSection $isExpanded={isRoutesExpanded}>
+                                                    <RoutesSection $isExpanded={true}>
                                                         <RoutesSectionContent>
                                                             <RoutesSectionHeader>
                                                                 <RoutesSectionTitle>
