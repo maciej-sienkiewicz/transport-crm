@@ -248,7 +248,7 @@ export const useRouteDetailLogic = (id: string) => {
             // Przekierowanie do listy tras po 1 sekundzie
             setTimeout(() => {
                 window.location.href = '/routes';
-            }, 1000);
+            }, 200);
         } catch (error) {
             // Błąd jest już obsłużony przez mutation
             console.error('Błąd podczas usuwania trasy:', error);

@@ -440,10 +440,7 @@ export const MultiRoutePlanner: React.FC = () => {
             toast.success(`Pomyślnie utworzono ${routes.length} ${routes.length === 1 ? 'trasę' : 'tras'}`);
 
             setRoutes([]);
-
-            setTimeout(() => {
-                window.location.href = '/routes';
-            }, 1500);
+            window.location.href = '/routes';
         } catch (error) {
             toast.error('Wystąpił błąd podczas zapisywania tras');
         } finally {

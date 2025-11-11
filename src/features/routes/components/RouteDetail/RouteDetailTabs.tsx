@@ -6,8 +6,10 @@ import { TabbedSection, TabsHeader, Tab, TabContent, EmptyState, EmptyIcon, Empt
 import { RouteDetail, RouteStop } from '../../types';
 import { ActiveTab, ChildSummaryItem } from '../../hooks/useRouteDetailLogic';
 import { RouteInfoTab } from './RouteInfoTab';
+// Importujemy nowy komponent
+import { RouteActivityHistory } from './RouteActivityHistory';
 
-// Komponent dla sekcji Dzieci
+// Komponent dla sekcji Dzieci (niezmieniony, używa placeholdera)
 const ChildrenTabContent: React.FC<{
     childrenSummary: ChildSummaryItem[],
     uniqueChildrenCount: number,
@@ -32,27 +34,7 @@ const ChildrenTabContent: React.FC<{
     );
 };
 
-// Komponent dla sekcji Historii
-const HistoryTabContent: React.FC<{ route: RouteDetail }> = ({ route }) => {
-    if (!route.notes || route.notes.length === 0) {
-        return (
-            <EmptyState>
-                <EmptyIcon><History size={32} /></EmptyIcon>
-                <EmptyText>Brak historii zmian dla tej trasy</EmptyText>
-            </EmptyState>
-        );
-    }
-
-    return (
-        <div style={{ padding: '1rem', color: '#334155' }}>
-            <p>Wyświetlam historię zmian: {route.notes.length} wpisów.</p>
-            <p style={{ fontSize: '0.875rem', color: '#64748b', marginTop: '0.5rem' }}>
-                (Pełna implementacja historii zmian będzie dodana w kolejnej iteracji)
-            </p>
-        </div>
-    );
-};
-
+// Interfejs RouteDetailTabsProps (przywrócony)
 interface RouteDetailTabsProps {
     route: RouteDetail;
     activeTab: ActiveTab;
@@ -128,8 +110,9 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                     />
                 )}
 
+                {/* Nowa implementacja zakładki Historia */}
                 {activeTab === 'history' && (
-                    <HistoryTabContent route={route} />
+                    <RouteActivityHistory routeId={route.id} />
                 )}
             </TabContent>
         </TabbedSection>
