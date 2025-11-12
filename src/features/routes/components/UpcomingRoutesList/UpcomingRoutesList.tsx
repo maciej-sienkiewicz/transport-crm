@@ -57,7 +57,9 @@ export const UpcomingRoutesList: React.FC<UpcomingRoutesListProps> = ({ schedule
     return (
         <>
             <ListContainer>
-                {data.content.map((route) => (
+                {data.content.sort((a, b) =>
+                    a.date.localeCompare(b.date)
+                ).map((route) => (
                     <RouteCard key={route.id} route={route} type="upcoming" />
                 ))}
             </ListContainer>

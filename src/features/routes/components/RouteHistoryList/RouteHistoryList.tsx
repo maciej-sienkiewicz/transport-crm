@@ -57,7 +57,9 @@ export const RouteHistoryList: React.FC<RouteHistoryListProps> = ({ scheduleId }
     return (
         <>
             <ListContainer>
-                {data.content.map((route) => (
+                {data.content.sort((a, b) =>
+                    a.date.localeCompare(b.date)
+                ).map((route) => (
                     <RouteCard key={route.id} route={route} type="history" />
                 ))}
             </ListContainer>
