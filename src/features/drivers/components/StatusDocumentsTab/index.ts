@@ -1,0 +1,1 @@
+export { StatusDocumentsTab } from './StatusDocumentsTab';

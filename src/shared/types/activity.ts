@@ -34,6 +34,7 @@ export type ActivityType =
     | 'ROUTE_STOPS_REORDERED'
     | 'ROUTE_NOTE_ADDED'
     | 'ROUTE_DELETED'
+    | 'ROUTE_COMPLETED'
     // Schedule activities
     | 'SCHEDULE_CREATED'
     | 'SCHEDULE_UPDATED'
