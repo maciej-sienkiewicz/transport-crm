@@ -36,7 +36,7 @@ export const DriverAbsencesTab: React.FC<DriverAbsencesTabProps> = ({ driverId }
     const [absenceToCancel, setAbsenceToCancel] = useState<DriverAbsence | null>(null);
 
     const { data, isLoading } = useDriverAbsences(driverId);
-    const absences = data?.absences || [];
+    const absences = data || [];
 
     const cancelAbsenceMutation = useCancelDriverAbsence(driverId);
     const isCancelling = cancelAbsenceMutation.isPending;
@@ -209,7 +209,7 @@ export const DriverAbsencesTab: React.FC<DriverAbsencesTabProps> = ({ driverId }
                                                 <Clock size={16} />
                                                 <InfoLabel>Zgłoszono:</InfoLabel>
                                                 <InfoValue>
-                                                    {formatDateTime(absence.createdAt)} przez {absence.createdBy.name}
+                                                    {formatDateTime(absence.createdAt)} przez {absence.createdBy}
                                                 </InfoValue>
                                             </InfoRow>
                                         </AbsenceInfo>

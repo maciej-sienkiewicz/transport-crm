@@ -144,7 +144,7 @@ export const PlannedRoutesTab: React.FC<PlannedRoutesTabProps> = ({ driverId }) 
                             </NextRouteInfoItem>
                             <NextRouteInfoItem>
                                 <Navigation size={18} />
-                                Pojazd: {nextRoute.vehicleName}
+                                Pojazd: {nextRoute.vehicleRegistrationNumber}
                             </NextRouteInfoItem>
                             <NextRouteInfoItem>
                                 <MapPin size={18} />
@@ -153,7 +153,7 @@ export const PlannedRoutesTab: React.FC<PlannedRoutesTabProps> = ({ driverId }) 
                         </NextRouteInfo>
 
                         <NextRouteRoute>
-                            📍 {nextRoute.startLocation} → {nextRoute.endLocation}
+                            📍 {nextRoute.firstStopAddress} → {nextRoute.lastStopAddress}
                         </NextRouteRoute>
 
                         <NextRouteActions>
@@ -204,7 +204,7 @@ export const PlannedRoutesTab: React.FC<PlannedRoutesTabProps> = ({ driverId }) 
                                     </RouteDetailItem>
                                     <RouteDetailItem>
                                         <RouteDetailLabel>Pojazd</RouteDetailLabel>
-                                        {route.vehicleName}
+                                        {route.vehicleRegistrationNumber}
                                     </RouteDetailItem>
                                     <RouteDetailItem>
                                         <RouteDetailLabel>Przystanki</RouteDetailLabel>

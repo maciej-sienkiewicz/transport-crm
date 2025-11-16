@@ -175,7 +175,7 @@ export const NotesTab: React.FC<NotesTabProps> = ({ driverId }) => {
                                         {getCategoryBadge(note.category)}
                                     </NoteHeaderTop>
                                     <NoteAuthor>
-                                        {note.createdBy.name} ({note.createdBy.role})
+                                        {note.createdByName}
                                     </NoteAuthor>
                                 </NoteHeaderLeft>
                             </NoteHeader>

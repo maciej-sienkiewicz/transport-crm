@@ -36,11 +36,7 @@ export interface DriverNote {
     category: 'REMINDER' | 'PRAISE' | 'ISSUE' | 'OTHER';
     content: string;
     createdAt: string;
-    createdBy: {
-        id: string;
-        name: string;
-        role: string;
-    };
+    createdByName: string;
 }
 
 export interface DriverStats {
@@ -64,13 +60,13 @@ export interface PlannedRoute {
     id: string;
     routeNumber: string;
     startTime: string;
-    startLocation: string;
+    firstStopAddress: string;
     endLocation: string;
     childrenCount: number;
     vehicleId: string;
-    vehicleName: string;
+    vehicleRegistrationNumber: string;
     stopsCount: number;
-    estimatedDuration: number;
+    estimatedDuration?: number;
     status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 }
 
@@ -187,10 +183,7 @@ export interface DriverAbsence {
     reason?: string;
     cancellationReason?: string;
     createdAt: string;
-    createdBy: {
-        id: string;
-        name: string;
-    };
+    createdBy: string;
 }
 
 export interface CreateDriverAbsenceRequest {
