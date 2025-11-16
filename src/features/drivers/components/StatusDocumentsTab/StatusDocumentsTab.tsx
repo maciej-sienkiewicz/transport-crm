@@ -1,14 +1,14 @@
 // src/features/drivers/components/StatusDocumentsTab/StatusDocumentsTab.tsx
+
 import React, { useState, useRef } from 'react';
-import { Check, X, AlertTriangle, FileText, Download, Trash2, Upload, Clock } from 'lucide-react';
+import { FileText, Trash2, Upload, Eye } from 'lucide-react';
 import { useDriverDetail } from '../../hooks/useDriverDetail';
-import { useCEPIKHistory } from '../../hooks/useCEPIKHistory';
-import { useDriverDocuments, useUploadDocument, useDeleteDocument } from '../../hooks/useDriverDocuments';
+import { useDriverDocuments, useUploadDocument, useDeleteDocument, useDocumentViewUrl } from '../../hooks/useDriverDocuments';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/Badge';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Select } from '@/shared/ui/Select';
-import { DriverDocument } from '../../types';
+import { DocumentType } from '../../types';
 import {
     Container,
     SectionTitle,
@@ -21,14 +21,6 @@ import {
     DocumentListMeta,
     DocumentListActions,
     IconButton,
-    TimelineContainer,
-    TimelineItem,
-    TimelineDot,
-    TimelineContent,
-    TimelineHeader,
-    TimelineTitle,
-    TimelineTime,
-    TimelineText,
     EmptyState,
     EmptyIcon,
     EmptyTitle,
@@ -38,6 +30,7 @@ import {
     UploadTitle,
     UploadText,
 } from './StatusDocumentsTab.styles';
+import toast from "react-hot-toast";
 
 interface StatusDocumentsTabProps {
     driverId: string;
@@ -45,22 +38,53 @@ interface StatusDocumentsTabProps {
 
 export const StatusDocumentsTab: React.FC<StatusDocumentsTabProps> = ({ driverId }) => {
     const { data: driver, isLoading: isLoadingDriver } = useDriverDetail(driverId);
-    const { data: cepikHistory, isLoading: isLoadingCEPIK } = useCEPIKHistory(driverId);
     const { data: documents, isLoading: isLoadingDocs } = useDriverDocuments(driverId);
     const uploadDocument = useUploadDocument(driverId);
-    const deleteDocument = useDeleteDocument(driverId);
+    const deleteDocument = useDeleteDocument();
 
-    const [uploadType, setUploadType] = useState<DriverDocument['type']>('OTHER');
+    const [uploadType, setUploadType] = useState<DocumentType>('DRIVER_OTHER');
+    const [viewingDocId, setViewingDocId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const { data: viewUrlData } = useDocumentViewUrl(viewingDocId);
+
+    // Automatycznie otwórz dokument gdy URL jest gotowy
+    React.useEffect(() => {
+        if (viewUrlData?.viewUrl && viewingDocId) {
+            window.open(viewUrlData.viewUrl, '_blank');
+            setViewingDocId(null); // Reset
+        }
+    }, [viewUrlData, viewingDocId]);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        await uploadDocument.mutateAsync({ file, type: uploadType });
+        // Walidacja rozmiaru
+        if (file.size > 10 * 1024 * 1024) {
+            toast.error('Plik jest za duży. Maksymalny rozmiar to 10 MB');
+            return;
+        }
+
+        // Walidacja typu
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        if (!allowedTypes.includes(file.type)) {
+            toast.error('Nieobsługiwany format pliku. Dozwolone: PDF, JPG, PNG');
+            return;
+        }
+
+        await uploadDocument.mutateAsync({
+            file,
+            documentType: uploadType
+        });
+
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
+    };
+
+    const handleView = (docId: string) => {
+        setViewingDocId(docId);
     };
 
     const handleDelete = async (docId: string, docName: string) => {
@@ -85,17 +109,19 @@ export const StatusDocumentsTab: React.FC<StatusDocumentsTabProps> = ({ driverId
         });
     };
 
-    const getCEPIKStatusBadge = (status: string) => {
-        switch (status) {
-            case 'ACTIVE':
-                return <Badge variant="success">Aktywne</Badge>;
-            case 'SUSPENDED':
-                return <Badge variant="warning">Zawieszone</Badge>;
-            case 'REVOKED':
-                return <Badge variant="danger">Cofnięte</Badge>;
-            default:
-                return <Badge variant="default">{status}</Badge>;
-        }
+    const getDocumentTypeBadge = (type: DocumentType) => {
+        const labels: Record<DocumentType, { label: string; color: string }> = {
+            DRIVER_CONTRACT: { label: 'Umowa', color: 'primary' },
+            DRIVER_CONTRACT_AMENDMENT: { label: 'Aneks', color: 'primary' },
+            DRIVER_LICENSE_SCAN: { label: 'Prawo jazdy', color: 'success' },
+            DRIVER_ID_SCAN: { label: 'Dowód osobisty', color: 'success' },
+            DRIVER_MEDICAL_CERTIFICATE: { label: 'Badania', color: 'warning' },
+            DRIVER_LEAVE_REQUEST: { label: 'Wniosek', color: 'default' },
+            DRIVER_OTHER: { label: 'Inny', color: 'default' },
+        };
+
+        const { label, color } = labels[type];
+        return <Badge variant={color as any}>{label}</Badge>;
     };
 
     if (isLoadingDriver || !driver) {
@@ -107,12 +133,13 @@ export const StatusDocumentsTab: React.FC<StatusDocumentsTabProps> = ({ driverId
     }
 
     const documentTypeOptions = [
-        { value: 'CONTRACT', label: 'Umowa o pracę' },
-        { value: 'AMENDMENT', label: 'Aneks' },
-        { value: 'LICENSE_SCAN', label: 'Skan prawa jazdy' },
-        { value: 'MEDICAL_SCAN', label: 'Skan badań lekarskich' },
-        { value: 'LEAVE_REQUEST', label: 'Wniosek urlopowy' },
-        { value: 'OTHER', label: 'Inny dokument' },
+        { value: 'DRIVER_CONTRACT', label: 'Umowa o pracę' },
+        { value: 'DRIVER_CONTRACT_AMENDMENT', label: 'Aneks do umowy' },
+        { value: 'DRIVER_LICENSE_SCAN', label: 'Skan prawa jazdy' },
+        { value: 'DRIVER_ID_SCAN', label: 'Skan dowodu osobistego' },
+        { value: 'DRIVER_MEDICAL_CERTIFICATE', label: 'Badania lekarskie' },
+        { value: 'DRIVER_LEAVE_REQUEST', label: 'Wniosek urlopowy' },
+        { value: 'DRIVER_OTHER', label: 'Inny dokument' },
     ];
 
     return (
@@ -128,14 +155,15 @@ export const StatusDocumentsTab: React.FC<StatusDocumentsTabProps> = ({ driverId
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <Select
                             value={uploadType}
-                            onChange={(e) => setUploadType(e.target.value as DriverDocument['type'])}
+                            onChange={(e) => setUploadType(e.target.value as DocumentType)}
                             options={documentTypeOptions}
-                            style={{ width: '200px' }}
+                            style={{ width: '250px' }}
                         />
                         <Button
                             size="sm"
                             onClick={() => fileInputRef.current?.click()}
                             isLoading={uploadDocument.isPending}
+                            disabled={uploadDocument.isPending}
                         >
                             <Upload size={16} />
                             Wybierz plik
@@ -160,29 +188,41 @@ export const StatusDocumentsTab: React.FC<StatusDocumentsTabProps> = ({ driverId
                             <FileText size={32} />
                         </EmptyIcon>
                         <EmptyTitle>Brak dokumentów</EmptyTitle>
-                        <EmptyText>Nie przesłano jeszcze żadnych dodatkowych dokumentów</EmptyText>
+                        <EmptyText>Nie przesłano jeszcze żadnych dokumentów</EmptyText>
                     </EmptyState>
                 ) : (
                     <DocumentsList>
                         {documents.map((doc) => (
                             <DocumentListItem key={doc.id}>
                                 <DocumentListInfo>
-                                    <DocumentListIcon>
+                                    <DocumentListIcon $isPdf={doc.isPdf} $isImage={doc.isImage}>
                                         <FileText size={18} />
                                     </DocumentListIcon>
                                     <DocumentListDetails>
-                                        <DocumentListName>{doc.name}</DocumentListName>
+                                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <DocumentListName>{doc.fileName}</DocumentListName>
+                                            {getDocumentTypeBadge(doc.documentType)}
+                                        </div>
                                         <DocumentListMeta>
-                                            {formatFileSize(doc.fileSize)} • {formatTimestamp(doc.uploadedAt)} • {doc.uploadedBy}
+                                            {formatFileSize(doc.fileSize)} • {formatTimestamp(doc.uploadedAt)} • {doc.uploadedByName}
                                         </DocumentListMeta>
+                                        {doc.notes && (
+                                            <DocumentListMeta style={{ marginTop: '0.25rem' }}>
+                                                📝 {doc.notes}
+                                            </DocumentListMeta>
+                                        )}
                                     </DocumentListDetails>
                                 </DocumentListInfo>
                                 <DocumentListActions>
-                                    <IconButton onClick={() => window.open(doc.fileUrl, '_blank')} title="Pobierz">
-                                        <Download size={16} />
+                                    <IconButton
+                                        onClick={() => handleView(doc.id)}
+                                        title="Podgląd"
+                                        disabled={viewingDocId === doc.id}
+                                    >
+                                        <Eye size={16} />
                                     </IconButton>
                                     <IconButton
-                                        onClick={() => handleDelete(doc.id, doc.name)}
+                                        onClick={() => handleDelete(doc.id, doc.fileName)}
                                         title="Usuń"
                                         disabled={deleteDocument.isPending}
                                     >
@@ -192,50 +232,6 @@ export const StatusDocumentsTab: React.FC<StatusDocumentsTabProps> = ({ driverId
                             </DocumentListItem>
                         ))}
                     </DocumentsList>
-                )}
-            </div>
-
-            <div>
-                <SectionTitle>🔄 Historia sprawdzeń CEPIK (ostatnie 10)</SectionTitle>
-                {isLoadingCEPIK ? (
-                    <div style={{ padding: '2rem', display: 'flex', justifyContent: 'center' }}>
-                        <LoadingSpinner />
-                    </div>
-                ) : !cepikHistory || cepikHistory.length === 0 ? (
-                    <EmptyState>
-                        <EmptyIcon>
-                            <Clock size={32} />
-                        </EmptyIcon>
-                        <EmptyTitle>Brak historii</EmptyTitle>
-                        <EmptyText>Nie wykonano jeszcze żadnych sprawdzeń w systemie CEPIK</EmptyText>
-                    </EmptyState>
-                ) : (
-                    <TimelineContainer>
-                        {cepikHistory.slice(0, 10).map((check) => (
-                            <TimelineItem key={check.id}>
-                                <TimelineDot
-                                    $status={
-                                        check.status === 'ACTIVE'
-                                            ? 'success'
-                                            : check.status === 'SUSPENDED'
-                                                ? 'warning'
-                                                : 'danger'
-                                    }
-                                />
-                                <TimelineContent>
-                                    <TimelineHeader>
-                                        <TimelineTitle>
-                                            {getCEPIKStatusBadge(check.status)}
-                                        </TimelineTitle>
-                                        <TimelineTime>{formatTimestamp(check.timestamp)}</TimelineTime>
-                                    </TimelineHeader>
-                                    <TimelineText>
-                                        Sprawdzone przez: {check.checkedBy}
-                                    </TimelineText>
-                                </TimelineContent>
-                            </TimelineItem>
-                        ))}
-                    </TimelineContainer>
                 )}
             </div>
         </Container>

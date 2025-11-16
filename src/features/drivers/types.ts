@@ -201,3 +201,41 @@ export interface DriverAbsencesResponse {
     absences: DriverAbsence[];
     totalCount: number;
 }
+
+// src/features/drivers/types.ts
+
+export type DocumentType =
+    | 'DRIVER_CONTRACT'
+    | 'DRIVER_CONTRACT_AMENDMENT'
+    | 'DRIVER_LICENSE_SCAN'
+    | 'DRIVER_ID_SCAN'
+    | 'DRIVER_MEDICAL_CERTIFICATE'
+    | 'DRIVER_LEAVE_REQUEST'
+    | 'DRIVER_OTHER';
+
+export interface Document {
+    id: string;
+    documentType: DocumentType;
+    fileName: string;
+    fileSize: number;
+    contentType: string;
+    uploadedByName: string;
+    uploadedAt: string;
+    notes?: string;
+    isPdf: boolean;
+    isImage: boolean;
+}
+
+export interface UploadUrlResponse {
+    uploadUrl: string;
+    s3Key: string;
+    expiresIn: number;
+}
+
+export interface DocumentUploadResult {
+    id: string;
+    fileName: string;
+    fileSize: number;
+    contentType: string;
+    s3Key: string;
+}
