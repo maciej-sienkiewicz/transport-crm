@@ -9,7 +9,7 @@ import {
     Menu,
     X,
     ChevronLeft,
-    ChevronRight,
+    ChevronRight, Home,
 } from 'lucide-react';
 import {
     SidebarContainer,
@@ -40,6 +40,12 @@ interface NavItemConfig {
 }
 
 const navigationItems: NavItemConfig[] = [
+    {
+        icon: Home,
+        label: 'Dashboard',
+        path: '/dashboard',
+        badge: null,
+    },
     {
         id: 'guardians',
         label: 'Opiekunowie',

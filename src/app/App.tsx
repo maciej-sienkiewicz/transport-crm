@@ -15,6 +15,8 @@ import { RouteDetailPage } from '@/pages/routes/RouteDetailPage';
 import { CreateRoutePage } from '@/pages/routes/CreateRoutePage';
 import { UserInfo } from '@/widgets/UserInfo/UserInfo';
 import { Sidebar } from '@/widgets/Sidebar';
+import {DashboardPage} from "@/pages/dashboard/DashboardPage.tsx";
+import {AlertsOverviewPage} from "@/pages/alerts/AlertsOverviewPage.tsx";
 
 const AppContainer = styled.div`
     min-height: 100vh;
@@ -51,6 +53,8 @@ const PageContent = styled.div`
 `;
 
 type Route =
+    | { type: 'dashboard' }
+    | { type: 'alerts-overview' }
     | { type: 'guardians-list' }
     | { type: 'guardian-detail'; id: string }
     | { type: 'children-list' }
@@ -67,7 +71,11 @@ function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
         const path = window.location.pathname;
 
-        if (path === '/routes/create') {
+        if (path === '/dashboard' || path === '/') {
+            return { type: 'dashboard' };
+        } else if (path === '/alerts/overview') {
+            return { type: 'alerts-overview' };
+        } else if (path === '/routes/create') {
             return { type: 'route-create' };
         } else if (path === '/routes') {
             return { type: 'routes-list' };
@@ -105,7 +113,11 @@ function App() {
         const handlePopState = () => {
             const path = window.location.pathname;
 
-            if (path === '/routes/create') {
+            if (path === '/dashboard' || path === '/') {
+                setCurrentRoute({ type: 'dashboard' });
+            } else if (path === '/alerts/overview') {
+                setCurrentRoute({ type: 'alerts-overview' });
+            } else if (path === '/routes/create') {
                 setCurrentRoute({ type: 'route-create' });
             } else if (path === '/routes') {
                 setCurrentRoute({ type: 'routes-list' });
@@ -150,6 +162,10 @@ function App() {
 
     const renderPage = () => {
         switch (currentRoute.type) {
+            case 'dashboard':
+                return <DashboardPage />;
+            case 'alerts-overview':
+                return <AlertsOverviewPage />;
             case 'routes-list':
                 return <RoutesListPage />;
             case 'route-detail':
