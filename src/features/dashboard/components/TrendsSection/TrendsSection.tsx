@@ -1,78 +1,67 @@
-// src/features/dashboard/components/TrendsSection/TrendsSection.tsx
-
 import React from 'react';
-import { TrendingUp } from 'lucide-react';
 import { Button } from '@/shared/ui/Button';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { useTrends } from '../../hooks/useTrends';
-import { TrendItem } from './TrendItem';
+import { KPICard } from './KPICard';
 import {
-    TrendsContainer,
-    TrendsHeader,
-    TrendsTitle,
-    TrendsList,
+    SectionContainer,
+    KPIGrid,
+    ViewAllContainer
 } from './TrendsSection.styles';
 
 export const TrendsSection: React.FC = () => {
     const { data, isLoading, error } = useTrends();
 
+    const handleViewAnalytics = () => {
+        console.log('Navigate to analytics');
+    };
+
     if (isLoading) {
         return (
-            <TrendsContainer>
+            <SectionContainer>
                 <LoadingSpinner />
-            </TrendsContainer>
+            </SectionContainer>
         );
     }
 
     if (error || !data) {
         return (
-            <TrendsContainer>
+            <SectionContainer>
                 <p>Nie udało się załadować trendów.</p>
-            </TrendsContainer>
+            </SectionContainer>
         );
     }
 
-    const { current, previous, changes } = data;
+    const { current, changes } = data;
 
     return (
-        <TrendsContainer>
-            <TrendsHeader>
-                <TrendsTitle>
-                    <TrendingUp size={18} /> TRENDY - TEN TYDZIEŃ VS POPRZEDNI
-                </TrendsTitle>
-            </TrendsHeader>
-
-            <TrendsList>
-                <TrendItem
-                    icon="children"
+        <SectionContainer>
+            <KPIGrid>
+                <KPICard
+                    icon="👥"
                     label="Dzieci"
-                    previousValue={previous.children}
-                    currentValue={current.children}
+                    value={current.children}
                     change={changes.children}
                 />
-                <TrendItem
-                    icon="routes"
+                <KPICard
+                    icon="🚗"
                     label="Trasy"
-                    previousValue={previous.routes}
-                    currentValue={current.routes}
+                    value={current.routes}
                     change={changes.routes}
                 />
-                <TrendItem
-                    icon="cancellations"
+                <KPICard
+                    icon="❌"
                     label="Anulowania"
-                    previousValue={previous.cancellations}
-                    currentValue={current.cancellations}
+                    value={current.cancellations}
                     change={changes.cancellations}
-                    showInfo
-                    infoText="Porównanie z średnią historyczną (ostatnie 12 tygodni)"
                 />
-            </TrendsList>
+            </KPIGrid>
 
-            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                <Button variant="secondary" size="sm">
+            <ViewAllContainer>
+                <Button variant="secondary" size="sm" onClick={handleViewAnalytics}>
                     📊 Zobacz pełną analitykę →
                 </Button>
-            </div>
-        </TrendsContainer>
+            </ViewAllContainer>
+        </SectionContainer>
     );
 };

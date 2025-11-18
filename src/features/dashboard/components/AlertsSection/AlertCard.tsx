@@ -1,155 +1,153 @@
-// src/features/dashboard/components/AlertsSection/AlertCard.tsx
-
 import React from 'react';
 import styled from 'styled-components';
-import { Users, Truck, AlertCircle, FileWarning, MapPin } from 'lucide-react';
+import { Button } from '@/shared/ui/Button';
 import { AlertType } from '../../types';
-import { ALERT_TYPE_LABELS } from '../../lib/constants';
+import { ALERT_TYPE_CONFIG } from '../../lib/constants';
 
-const Card = styled.div`
-  background: white;
-  border-radius: ${({ theme }) => theme.borderRadius.xl};
-  box-shadow: ${({ theme }) => theme.shadows.sm};
-  border: 1px solid ${({ theme }) => theme.colors.slate[200]};
-  padding: ${({ theme }) => theme.spacing.lg};
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.spacing.md};
-  transition: all ${({ theme }) => theme.transitions.normal};
-  cursor: pointer;
+const Card = styled.div<{ $hasIssues: boolean }>`
+    background: white;
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    box-shadow: ${({ theme }) => theme.shadows.sm};
+    border: 1px solid ${({ theme }) => theme.colors.slate[200]};
+    padding: ${({ theme }) => theme.spacing.lg};
+    display: flex;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.md};
+    transition: all ${({ theme }) => theme.transitions.normal};
+    cursor: ${({ $hasIssues }) => ($hasIssues ? 'pointer' : 'default')};
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: ${({ theme }) => theme.shadows.md};
-    border-color: ${({ theme }) => theme.colors.primary[300]};
-  }
+    &:hover {
+        transform: ${({ $hasIssues }) => ($hasIssues ? 'translateY(-2px)' : 'none')};
+        box-shadow: ${({ $hasIssues, theme }) =>
+                $hasIssues ? theme.shadows.md : theme.shadows.sm};
+        border-color: ${({ $hasIssues, theme }) =>
+                $hasIssues ? theme.colors.primary[300] : theme.colors.slate[200]};
+    }
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        padding: ${({ theme }) => theme.spacing.md};
+    }
 `;
 
 const CardHeader = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: ${({ theme }) => theme.spacing.md};
 `;
 
-const IconWrapper = styled.div<{ $variant: 'primary' | 'warning' | 'danger' }>`
-  width: 48px;
-  height: 48px;
-  border-radius: ${({ theme }) => theme.borderRadius.xl};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: ${({ $variant, theme }) => {
-    switch ($variant) {
-        case 'primary':
-            return theme.colors.primary[100];
-        case 'warning':
-            return theme.colors.warning[100];
-        case 'danger':
-            return theme.colors.danger[100];
+const IconWrapper = styled.div`
+    width: 48px;
+    height: 48px;
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    background: ${({ theme }) => theme.colors.slate[100]};
+    flex-shrink: 0;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
     }
-}};
-  color: ${({ $variant, theme }) => {
-    switch ($variant) {
-        case 'primary':
-            return theme.colors.primary[700];
-        case 'warning':
-            return theme.colors.warning[700];
-        case 'danger':
-            return theme.colors.danger[700];
-    }
-}};
 `;
 
-const CountBadge = styled.div`
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.slate[900]};
+const CountBadge = styled.div<{ $count: number }>`
+    font-size: 2rem;
+    font-weight: 700;
+    color: ${({ $count, theme }) =>
+            $count === 0 ? theme.colors.success[600] : theme.colors.slate[900]};
+    line-height: 1;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        font-size: 1.75rem;
+    }
+`;
+
+const CardContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.xs};
 `;
 
 const CardTitle = styled.h4`
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: ${({ theme }) => theme.colors.slate[700]};
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[700]};
+    text-transform: uppercase;
+    letter-spacing: ${({ theme }) => theme.typography.letterSpacing.wide};
+    margin: 0;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        font-size: 0.8125rem;
+    }
 `;
 
 const CardDescription = styled.p`
-  font-size: 0.8125rem;
-  color: ${({ theme }) => theme.colors.slate[600]};
+    font-size: 0.875rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
+    line-height: 1.5;
+    margin: 0;
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        font-size: 0.8125rem;
+    }
 `;
 
-const ActionButton = styled.button`
-  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
-  font-size: 0.8125rem;
-  font-weight: 600;
-  border-radius: ${({ theme }) => theme.borderRadius.lg};
-  border: none;
-  background: ${({ theme }) => theme.gradients.primaryButton};
-  color: white;
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
+const CardAction = styled.div`
+    margin-top: ${({ theme }) => theme.spacing.sm};
+`;
 
-  &:hover {
-    transform: translateX(2px);
-  }
+const EmptyStateIndicator = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+    font-size: 0.875rem;
+    color: ${({ theme }) => theme.colors.success[600]};
+    font-weight: 600;
+    margin-top: ${({ theme }) => theme.spacing.xs};
 `;
 
 interface AlertCardProps {
     type: AlertType;
     count: number;
-    onActionClick: () => void;
 }
 
-export const AlertCard: React.FC<AlertCardProps> = ({ type, count, onActionClick }) => {
-    const getIcon = () => {
-        switch (type) {
-            case 'CHILDREN_NO_ROUTES':
-                return <Users size={24} />;
-            case 'ROUTES_NO_DRIVERS':
-                return <MapPin size={24} />;
-            case 'DRIVER_DOCUMENTS':
-                return <FileWarning size={24} />;
-            case 'VEHICLE_DOCUMENTS':
-                return <Truck size={24} />;
-            case 'ROUTES_NO_VEHICLES':
-                return <AlertCircle size={24} />;
-        }
-    };
+export const AlertCard: React.FC<AlertCardProps> = ({ type, count }) => {
+    const config = ALERT_TYPE_CONFIG[type];
+    const hasIssues = count > 0;
 
-    const getVariant = (): 'primary' | 'warning' | 'danger' => {
-        if (count === 0) return 'primary';
-        if (count < 5) return 'warning';
-        return 'danger';
-    };
-
-    const getActionLabel = () => {
-        switch (type) {
-            case 'CHILDREN_NO_ROUTES':
-                return 'Rozwiąż →';
-            case 'ROUTES_NO_DRIVERS':
-                return 'Przypisz →';
-            case 'DRIVER_DOCUMENTS':
-            case 'VEHICLE_DOCUMENTS':
-                return 'Zobacz →';
-            case 'ROUTES_NO_VEHICLES':
-                return 'Przypisz →';
+    const handleAction = () => {
+        if (hasIssues) {
+            window.history.pushState({}, '', config.primaryAction.route);
+            window.dispatchEvent(new PopStateEvent('popstate'));
         }
     };
 
     return (
-        <Card onClick={onActionClick}>
+        <Card $hasIssues={hasIssues} onClick={hasIssues ? handleAction : undefined}>
             <CardHeader>
-                <IconWrapper $variant={getVariant()}>{getIcon()}</IconWrapper>
-                <CountBadge>{count}</CountBadge>
+                <IconWrapper>{config.icon}</IconWrapper>
+                <CountBadge $count={count}>{count}</CountBadge>
             </CardHeader>
-            <div>
-                <CardTitle>{ALERT_TYPE_LABELS[type]}</CardTitle>
-                <CardDescription>
-                    {count === 0
-                        ? 'Wszystko w porządku'
-                        : `${count} ${count === 1 ? 'wymaga' : 'wymagają'} uwagi`}
-                </CardDescription>
-            </div>
-            {count > 0 && <ActionButton>{getActionLabel()}</ActionButton>}
+            <CardContent>
+                <CardTitle>{config.title}</CardTitle>
+                <CardDescription>{config.getDescription(count)}</CardDescription>
+                {count === 0 && (
+                    <EmptyStateIndicator>
+                        ✅ Wszystko w porządku
+                    </EmptyStateIndicator>
+                )}
+            </CardContent>
+            {hasIssues && (
+                <CardAction>
+                    <Button variant="primary" size="sm" fullWidth>
+                        {config.primaryAction.label} →
+                    </Button>
+                </CardAction>
+            )}
         </Card>
     );
 };

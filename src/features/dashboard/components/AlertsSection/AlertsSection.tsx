@@ -1,64 +1,58 @@
-// src/features/dashboard/components/AlertsSection/AlertsSection.tsx
-
 import React, { useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
 import { useAlerts } from '../../hooks/useAlerts';
-import { AlertFilters, AlertType } from '../../types';
-import { AlertsFilter } from './AlertsFilter';
+import { AlertScope, AlertType } from '../../types';
+import { AlertFilters } from './AlertFilters';
 import { AlertCard } from './AlertCard';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import {
-    AlertsContainer,
-    AlertsHeader,
-    AlertsTitle,
-    AlertsGrid,
+    SectionContainer,
+    SectionHeader,
+    AlertsGrid
 } from './AlertsSection.styles';
 
 export const AlertsSection: React.FC = () => {
-    const [filters, setFilters] = useState<AlertFilters>({ scope: '7_DAYS' });
-    const { data, isLoading, error } = useAlerts(filters);
-
-    const handleActionClick = (type: AlertType) => {
-        // TODO: Navigate to specific alerts page
-        console.log('Navigate to alerts page for type:', type);
-    };
+    const [scope, setScope] = useState<AlertScope>('SEVEN_DAYS');
+    const { data, isLoading, error } = useAlerts({ scope });
 
     if (isLoading) {
-        return <LoadingSpinner />;
+        return (
+            <SectionContainer>
+                <LoadingSpinner />
+            </SectionContainer>
+        );
     }
 
     if (error || !data) {
-        return <p>Nie udało się załadować alertów.</p>;
+        return (
+            <SectionContainer>
+                <p>Nie udało się załadować alertów.</p>
+            </SectionContainer>
+        );
     }
 
     const alertTypes: AlertType[] = [
         'CHILDREN_NO_ROUTES',
         'ROUTES_NO_DRIVERS',
-        'DRIVER_DOCUMENTS',
+        'DRIVER_DOCUMENTS'
     ];
 
+    const getAlertCount = (type: AlertType): number => {
+        if (!data.otherAlerts) return 0;
+        const alert = data.otherAlerts.find((a) => a.type === type);
+        return alert?.count || 0;
+    };
+
     return (
-        <AlertsContainer>
-            <AlertsHeader>
-                <AlertsTitle>
-                    <AlertTriangle size={18} /> WYMAGAJĄ NATYCHMIASTOWEJ UWAGI
-                </AlertsTitle>
-                <AlertsFilter filters={filters} onChange={setFilters} />
-            </AlertsHeader>
+        <SectionContainer>
+            <SectionHeader>
+                <AlertFilters activeScope={scope} onScopeChange={setScope} />
+            </SectionHeader>
 
             <AlertsGrid>
-                {alertTypes.map((type) => {
-                    const alert = data.alerts.find((a) => a.type === type);
-                    return (
-                        <AlertCard
-                            key={type}
-                            type={type}
-                            count={alert?.count || 0}
-                            onActionClick={() => handleActionClick(type)}
-                        />
-                    );
-                })}
+                {alertTypes.map((type) => (
+                    <AlertCard key={type} type={type} count={getAlertCount(type)} />
+                ))}
             </AlertsGrid>
-        </AlertsContainer>
+        </SectionContainer>
     );
 };

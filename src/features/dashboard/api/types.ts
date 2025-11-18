@@ -1,10 +1,6 @@
-// src/features/dashboard/api/types.ts
-
 import {
     DashboardSummary,
-    DetailedAlert,
-    TrendsData,
-    AlertType
+    AlertScope,
 } from '../types';
 
 export interface GetDashboardSummaryParams {
@@ -12,15 +8,49 @@ export interface GetDashboardSummaryParams {
 }
 
 export interface GetAlertsParams {
-    scope: 'TOMORROW' | '3_DAYS' | '7_DAYS' | '30_DAYS';
+    scope: AlertScope;
 }
 
 export interface DashboardSummaryResponse extends DashboardSummary {}
 
 export interface AlertsResponse {
-    alerts: DetailedAlert[];
+    childrenAlert: any | null; // From backend
+    otherAlerts: Array<{
+        type: string;
+        severity: string;
+        count: number;
+        items: any[];
+    }>;
     totalCount: number;
-    scope: string;
+    scope: AlertScope;
 }
 
-export interface TrendsResponse extends TrendsData {}
+export interface TrendsResponse {
+    current: {
+        children: number;
+        routes: number;
+        cancellations: number;
+    };
+    previous: {
+        children: number;
+        routes: number;
+        cancellations: number;
+    };
+    changes: {
+        children: {
+            value: number;
+            percentage: number;
+            direction: 'UP' | 'DOWN' | 'NEUTRAL';
+        };
+        routes: {
+            value: number;
+            percentage: number;
+            direction: 'UP' | 'DOWN' | 'NEUTRAL';
+        };
+        cancellations: {
+            value: number;
+            percentage: number;
+            direction: 'UP' | 'DOWN' | 'NEUTRAL';
+        };
+    };
+}
