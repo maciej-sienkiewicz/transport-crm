@@ -1,4 +1,5 @@
-// src/widgets/Sidebar/Sidebar.tsx
+// src/widgets/Sidebar/Sidebar.tsx - POPRAWIONA WERSJA
+
 import React, { useState, useEffect } from 'react';
 import {
     Users,
@@ -9,7 +10,9 @@ import {
     Menu,
     X,
     ChevronLeft,
-    ChevronRight, Home,
+    ChevronRight,
+    Home,
+    AlertTriangle, // Zmieniam z AlertCircle na AlertTriangle dla lepszej widoczności
 } from 'lucide-react';
 import {
     SidebarContainer,
@@ -41,10 +44,10 @@ interface NavItemConfig {
 
 const navigationItems: NavItemConfig[] = [
     {
+        id: 'dashboard',
         icon: Home,
         label: 'Dashboard',
         path: '/dashboard',
-        badge: null,
     },
     {
         id: 'guardians',
@@ -76,6 +79,12 @@ const navigationItems: NavItemConfig[] = [
         icon: Route,
         path: '/routes',
     },
+    {
+        id: 'unassigned',
+        label: 'Nieprzypisane',
+        icon: AlertTriangle,
+        path: '/routes/unassigned',
+    },
 ];
 
 export const Sidebar: React.FC = () => {
@@ -104,7 +113,6 @@ export const Sidebar: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        // Emit custom event when sidebar collapse state changes
         const event = new CustomEvent('sidebar-collapse', {
             detail: { isCollapsed }
         });
@@ -112,17 +120,45 @@ export const Sidebar: React.FC = () => {
     }, [isCollapsed]);
 
     const handleNavigate = (path: string) => {
+        console.log('🔵 Sidebar: Navigating to:', path); // DEBUG
         window.history.pushState({}, '', path);
         window.dispatchEvent(new PopStateEvent('popstate'));
         setCurrentPath(path);
         setIsMobileOpen(false);
     };
 
+    // POPRAWIONA FUNKCJA isActive - bardziej precyzyjna
     const isActive = (path: string): boolean => {
-        if (path === '/guardians' && (currentPath === '/' || currentPath === '/guardians')) {
-            return true;
+        // Exact match dla specjalnych ścieżek
+        if (path === '/routes/unassigned') {
+            return currentPath === '/routes/unassigned';
         }
-        return currentPath.startsWith(path);
+
+        if (path === '/routes/create') {
+            return currentPath === '/routes/create';
+        }
+
+        if (path === '/dashboard') {
+            return currentPath === '/dashboard' || currentPath === '/';
+        }
+
+        // Dla /routes - tylko główna lista tras (bez podstron)
+        if (path === '/routes') {
+            return currentPath === '/routes';
+        }
+
+        // Dla /guardians - główna strona lub szczegóły
+        if (path === '/guardians') {
+            return currentPath === '/guardians' ||
+                (currentPath.startsWith('/guardians/') && currentPath !== '/guardians');
+        }
+
+        // Dla pozostałych - standardowe sprawdzenie
+        if (path === '/children' || path === '/vehicles' || path === '/drivers') {
+            return currentPath === path || currentPath.startsWith(path + '/');
+        }
+
+        return currentPath === path;
     };
 
     const toggleSidebar = () => {
@@ -172,7 +208,10 @@ export const Sidebar: React.FC = () => {
                                     key={item.id}
                                     $isActive={active}
                                     $isCollapsed={isCollapsed}
-                                    onClick={() => handleNavigate(item.path)}
+                                    onClick={() => {
+                                        console.log('🟢 Clicked:', item.label, 'Path:', item.path); // DEBUG
+                                        handleNavigate(item.path);
+                                    }}
                                     aria-label={item.label}
                                     aria-current={active ? 'page' : undefined}
                                 >

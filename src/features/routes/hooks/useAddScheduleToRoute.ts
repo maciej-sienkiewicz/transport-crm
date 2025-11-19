@@ -1,3 +1,4 @@
+// src/features/routes/hooks/useAddScheduleToRoute.ts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { routeScheduleApi, AddScheduleToRouteRequest } from '../api/routeScheduleApi';
@@ -16,7 +17,10 @@ export const useAddScheduleToRoute = () => {
         onSuccess: (_, variables) => {
             queryClient.invalidateQueries({ queryKey: ['route', variables.routeId] });
             queryClient.invalidateQueries({ queryKey: ['routes'] });
+
+            queryClient.invalidateQueries({ queryKey: ['unassigned-schedules'] });
             queryClient.invalidateQueries({ queryKey: ['available-children'] });
+
             toast.success('Dziecko zostało dodane do trasy');
         },
         onError: (error: any) => {

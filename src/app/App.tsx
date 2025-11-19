@@ -17,6 +17,7 @@ import { UserInfo } from '@/widgets/UserInfo/UserInfo';
 import { Sidebar } from '@/widgets/Sidebar';
 import {DashboardPage} from "@/pages/dashboard/DashboardPage.tsx";
 import {AlertsOverviewPage} from "@/pages/alerts/AlertsOverviewPage.tsx";
+import {UnassignedSchedulesPage} from "@/pages/routes/UnassignedSchedulesPage.tsx";
 
 const AppContainer = styled.div`
     min-height: 100vh;
@@ -65,13 +66,16 @@ type Route =
     | { type: 'driver-detail'; id: string }
     | { type: 'routes-list' }
     | { type: 'route-detail'; id: string }
-    | { type: 'route-create' };
+    | { type: 'route-create' }
+    | { type: 'unassigned-schedules' };
 
 function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
         const path = window.location.pathname;
 
-        if (path === '/dashboard' || path === '/') {
+        if (path === '/routes/unassigned') {
+            return { type: 'unassigned-schedules' };
+        } else if (path === '/dashboard' || path === '/') {
             return { type: 'dashboard' };
         } else if (path === '/alerts/overview') {
             return { type: 'alerts-overview' };
@@ -113,7 +117,9 @@ function App() {
         const handlePopState = () => {
             const path = window.location.pathname;
 
-            if (path === '/dashboard' || path === '/') {
+            if (path === '/routes/unassigned') {
+                setCurrentRoute({ type: 'unassigned-schedules' });
+            } else if (path === '/dashboard' || path === '/') {
                 setCurrentRoute({ type: 'dashboard' });
             } else if (path === '/alerts/overview') {
                 setCurrentRoute({ type: 'alerts-overview' });
@@ -162,6 +168,8 @@ function App() {
 
     const renderPage = () => {
         switch (currentRoute.type) {
+            case 'unassigned-schedules':
+                return <UnassignedSchedulesPage />;
             case 'dashboard':
                 return <DashboardPage />;
             case 'alerts-overview':

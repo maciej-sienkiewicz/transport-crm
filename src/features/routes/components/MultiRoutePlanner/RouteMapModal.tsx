@@ -1,9 +1,10 @@
+// src/features/routes/components/SmartAssignmentDashboard/RouteMapModal.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, MapPin, Navigation, AlertCircle, RefreshCw, Save, ChevronUp, ChevronDown } from 'lucide-react';
+import { X, MapPin, Navigation, AlertCircle, RefreshCw, Save, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import styled from 'styled-components';
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 
-interface RoutePoint {
+export interface RoutePoint {
     address: string;
     lat: number | null;
     lng: number | null;
@@ -11,6 +12,9 @@ interface RoutePoint {
     childName: string;
     order: number;
     hasCoordinates: boolean;
+    stopId: string;
+    scheduleId: string;
+    isNew?: boolean;
 }
 
 interface RouteMapModalProps {
@@ -19,7 +23,7 @@ interface RouteMapModalProps {
     routeName: string;
     points: RoutePoint[];
     apiKey: string;
-    onSaveOrder?: (newPoints: RoutePoint[]) => void; // Callback do zapisu nowej kolejności
+    onSaveOrder?: (newPoints: RoutePoint[]) => void;
 }
 
 // Funkcja do generowania oznaczeń typu A(1), A(2), B(1), B(2)
@@ -39,7 +43,7 @@ const getChildIndexMap = (points: RoutePoint[]): Record<string, number> => {
     return childIndexMap;
 };
 
-// Walidacja kolejności - sprawdza czy dowóz nie jest przed odbiorem dla danego dziecka
+// Walidacja kolejności
 const validatePointsOrder = (points: RoutePoint[]): { isValid: boolean; errors: string[] } => {
     const errors: string[] = [];
     const childPickupIndices: Record<string, number> = {};
@@ -59,10 +63,11 @@ const validatePointsOrder = (points: RoutePoint[]): { isValid: boolean; errors: 
 
     return {
         isValid: errors.length === 0,
-        errors
+        errors,
     };
 };
 
+// Styled Components
 const Overlay = styled.div<{ $isOpen: boolean }>`
     position: fixed;
     inset: 0;
@@ -90,7 +95,7 @@ const ModalContainer = styled.div`
     border-radius: ${({ theme }) => theme.borderRadius['2xl']};
     box-shadow: ${({ theme }) => theme.shadows.xl};
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
@@ -172,7 +177,7 @@ const MapContainer = styled.div`
 `;
 
 const Sidebar = styled.div`
-    width: 300px;
+    width: 350px;
     display: flex;
     flex-direction: column;
     gap: ${({ theme }) => theme.spacing.md};
@@ -180,19 +185,51 @@ const Sidebar = styled.div`
 
     @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
         width: 100%;
-        max-height: 200px;
+        max-height: 300px;
     }
 `;
 
-const PointOrder = styled.div<{ $type: 'pickup' | 'dropoff'; $noCoordinates?: boolean }>`
+const NewPointBadge = styled.div`
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+    color: white;
+    border-radius: ${({ theme }) => theme.borderRadius.full};
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 8px rgba(139, 92, 246, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: pulse 2s ease-in-out infinite;
+
+    @keyframes pulse {
+        0%,
+        100% {
+            opacity: 1;
+            transform: scale(1);
+        }
+        50% {
+            opacity: 0.8;
+            transform: scale(1.05);
+        }
+    }
+`;
+
+const PointOrder = styled.div<{ $type: 'pickup' | 'dropoff'; $noCoordinates?: boolean; $isNew?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
     min-width: 46px;
     height: 32px;
     padding: 0 8px;
-    background: ${({ $type, $noCoordinates, theme }) => {
+    background: ${({ $type, $noCoordinates, $isNew, theme }) => {
         if ($noCoordinates) return theme.colors.slate[400];
+        if ($isNew) return 'linear-gradient(135deg, #8b5cf6, #a78bfa)';
         return $type === 'pickup' ? theme.colors.primary[600] : theme.colors.success[600];
     }};
     color: white;
@@ -201,6 +238,7 @@ const PointOrder = styled.div<{ $type: 'pickup' | 'dropoff'; $noCoordinates?: bo
     font-weight: 700;
     flex-shrink: 0;
     white-space: nowrap;
+    box-shadow: ${({ $isNew }) => ($isNew ? '0 2px 8px rgba(139, 92, 246, 0.3)' : 'none')};
 `;
 
 const PointInfo = styled.div`
@@ -257,6 +295,19 @@ const WarningBanner = styled.div`
     line-height: 1.5;
 `;
 
+const InfoBanner = styled.div`
+    display: flex;
+    gap: ${({ theme }) => theme.spacing.sm};
+    padding: ${({ theme }) => theme.spacing.md};
+    background: linear-gradient(135deg, #ede9fe, #ddd6fe);
+    border: 1px solid #c4b5fd;
+    border-radius: ${({ theme }) => theme.borderRadius.lg};
+    color: #6d28d9;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    font-weight: 500;
+`;
+
 const RouteStats = styled.div`
     padding: ${({ theme }) => theme.spacing.md};
     background: ${({ theme }) => theme.colors.slate[50]};
@@ -303,52 +354,63 @@ const MoveButton = styled.button`
     color: #64748b;
     cursor: pointer;
     transition: all 0.15s;
-    
+
     &:hover:not(:disabled) {
         background: #f1f5f9;
         border-color: #94a3b8;
         color: #475569;
     }
-    
+
     &:disabled {
         opacity: 0.3;
         cursor: not-allowed;
     }
-    
+
     &:active:not(:disabled) {
         transform: scale(0.95);
     }
 `;
 
-const PointCardWithControls = styled.div<{ $type: 'pickup' | 'dropoff'; $noCoordinates?: boolean }>`
+const PointCardWithControls = styled.div<{
+    $type: 'pickup' | 'dropoff';
+    $noCoordinates?: boolean;
+    $isNew?: boolean;
+}>`
+    position: relative;
     padding: ${({ theme }) => theme.spacing.md};
-    background: ${({ $type, $noCoordinates, theme }) => {
+    background: ${({ $type, $noCoordinates, $isNew, theme }) => {
     if ($noCoordinates) return theme.colors.slate[50];
+    if ($isNew) return 'linear-gradient(135deg, #faf5ff, #f3e8ff)';
     return $type === 'pickup' ? theme.colors.primary[50] : theme.colors.success[50];
 }};
-    border: 1px solid ${({ $type, $noCoordinates, theme }) => {
-    if ($noCoordinates) return theme.colors.slate[200];
-    return $type === 'pickup' ? theme.colors.primary[200] : theme.colors.success[200];
+    border: ${({ $isNew, $type, $noCoordinates, theme }) => {
+    if ($isNew) return '2px solid #a78bfa';
+    if ($noCoordinates) return `1px solid ${theme.colors.slate[200]}`;
+    return $type === 'pickup'
+        ? `1px solid ${theme.colors.primary[200]}`
+        : `1px solid ${theme.colors.success[200]}`;
 }};
     border-radius: ${({ theme }) => theme.borderRadius.lg};
     display: flex;
     gap: ${({ theme }) => theme.spacing.sm};
     align-items: center;
-    opacity: ${({ $noCoordinates }) => $noCoordinates ? 0.6 : 1};
-    transition: box-shadow 0.2s;
-    
+    opacity: ${({ $noCoordinates }) => ($noCoordinates ? 0.6 : 1)};
+    transition: all 0.2s;
+    box-shadow: ${({ $isNew }) => ($isNew ? '0 4px 12px rgba(139, 92, 246, 0.15)' : 'none')};
+
     &:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        box-shadow: ${({ $isNew }) =>
+    $isNew ? '0 6px 16px rgba(139, 92, 246, 0.25)' : '0 2px 8px rgba(0, 0, 0, 0.08)'};
+        transform: translateY(-1px);
     }
 `;
 
 const ActionButtons = styled.div`
     display: flex;
     gap: 12px;
-    margin-top: 16px;
 `;
 
-const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'success' }>`
+const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
     flex: 1;
     display: flex;
     align-items: center;
@@ -369,15 +431,6 @@ const ActionButton = styled.button<{ $variant?: 'primary' | 'secondary' | 'succe
                 color: white;
                 &:hover:not(:disabled) {
                     background: #1d4ed8;
-                }
-            `;
-        }
-        if ($variant === 'success') {
-            return `
-                background: #10b981;
-                color: white;
-                &:hover:not(:disabled) {
-                    background: #059669;
                 }
             `;
         }
@@ -411,11 +464,25 @@ const ValidationError = styled.div`
 
 const ModalFooter = styled.div`
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     gap: 12px;
     padding: 20px;
     border-top: 1px solid #e2e8f0;
     background: #f8fafc;
+`;
+
+const FooterLeft = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8125rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
+`;
+
+const FooterRight = styled.div`
+    display: flex;
+    gap: 12px;
 `;
 
 const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
@@ -429,14 +496,16 @@ const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
     cursor: pointer;
     transition: all 0.15s;
     border: none;
-    
+
     ${({ $variant }) => {
     if ($variant === 'primary') {
         return `
                 background: #2563eb;
                 color: white;
-                &:hover {
+                &:hover:not(:disabled) {
                     background: #1d4ed8;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
                 }
             `;
     }
@@ -444,14 +513,19 @@ const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
             background: white;
             color: #475569;
             border: 1px solid #cbd5e1;
-            &:hover {
+            &:hover:not(:disabled) {
                 background: #f8fafc;
             }
         `;
 }}
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 `;
 
-// NOWA WERSJA: Używamy tylko Polyline i własnych Markerów
+// Komponent renderujący trasę na mapie
 const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
     const map = useMap();
 
@@ -464,8 +538,7 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
 
         if (validPoints.length < 2) return;
 
-        // Mapa dzieci na indeksy dla etykiet
-        const uniqueChildren = [...new Set(points.map(p => p.childName))];
+        const uniqueChildren = [...new Set(points.map((p) => p.childName))];
         const childIndexMap: Record<string, number> = {};
         uniqueChildren.forEach((child, index) => {
             childIndexMap[child] = index;
@@ -473,17 +546,14 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
 
         const directionsService = new google.maps.DirectionsService();
 
-        // Przygotuj waypoints
         const waypoints = validPoints.slice(1, -1).map((point) => ({
             location: new google.maps.LatLng(point.lat!, point.lng!),
             stopover: true,
         }));
 
-        // Tablica do przechowywania elementów do wyczyszczenia
         const markers: google.maps.Marker[] = [];
         let polyline: google.maps.Polyline | null = null;
 
-        // Wyznacz trasę
         directionsService.route(
             {
                 origin: new google.maps.LatLng(validPoints[0].lat!, validPoints[0].lng!),
@@ -497,7 +567,6 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
             },
             (result, status) => {
                 if (status === google.maps.DirectionsStatus.OK && result) {
-                    // Narysuj linię trasy RĘCZNIE
                     const path = result.routes[0].overview_path;
                     polyline = new google.maps.Polyline({
                         path: path,
@@ -508,7 +577,6 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
                         map: map,
                     });
 
-                    // Teraz dodaj własne markery
                     points.forEach((point) => {
                         if (!point.hasCoordinates || point.lat === null || point.lng === null) {
                             return;
@@ -518,13 +586,23 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
                         const letter = String.fromCharCode(65 + childIndex);
                         const number = point.type === 'pickup' ? '1' : '2';
                         const label = `${letter}(${number})`;
-                        const markerColor = point.type === 'pickup' ? '#2563eb' : '#10b981';
 
-                        // Tworzymy SVG marker jako data URL
+                        // Kolor markera - różowy dla nowych punktów, standardowy dla istniejących
+                        const markerColor = point.isNew
+                            ? '#8b5cf6'
+                            : point.type === 'pickup'
+                                ? '#2563eb'
+                                : '#10b981';
+
                         const svgMarker = {
                             url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
                                 <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
                                     <circle cx="20" cy="20" r="18" fill="${markerColor}" stroke="white" stroke-width="3"/>
+                                    ${
+                                point.isNew
+                                    ? '<circle cx="32" cy="8" r="6" fill="#f59e0b" stroke="white" stroke-width="2"/>'
+                                    : ''
+                            }
                                     <text x="20" y="20" font-family="Arial, sans-serif" font-size="12" font-weight="bold" 
                                           fill="white" text-anchor="middle" dominant-baseline="central">${label}</text>
                                 </svg>
@@ -537,14 +615,15 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
                             position: { lat: point.lat, lng: point.lng },
                             map: map,
                             icon: svgMarker,
-                            title: `${point.childName} - ${point.type === 'pickup' ? 'Odbiór' : 'Dowóz'}`,
-                            zIndex: 1000,
+                            title: `${point.childName} - ${point.type === 'pickup' ? 'Odbiór' : 'Dowóz'}${
+                                point.isNew ? ' (NOWY)' : ''
+                            }`,
+                            zIndex: point.isNew ? 2000 : 1000,
                         });
 
                         markers.push(marker);
                     });
 
-                    // Oblicz statystyki
                     let totalDistance = 0;
                     let totalDuration = 0;
                     result.routes[0].legs.forEach((leg) => {
@@ -552,24 +631,28 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
                         totalDuration += leg.duration?.value || 0;
                     });
 
-                    console.log(`Trasa: ${(totalDistance / 1000).toFixed(1)} km, ${Math.round(totalDuration / 60)} min`);
-                    console.log(`Utworzono ${markers.length} własnych markerów`);
+                    console.log(
+                        `🗺️ Trasa: ${(totalDistance / 1000).toFixed(1)} km, ${Math.round(
+                            totalDuration / 60
+                        )} min`
+                    );
+                    console.log(`📍 Utworzono ${markers.length} markerów (w tym ${points.filter(p => p.isNew).length} nowych)`);
                 } else {
-                    console.error('Błąd wyznaczania trasy:', status);
+                    console.error('❌ Błąd wyznaczania trasy:', status);
                 }
             }
         );
 
         return () => {
-            // Cleanup
             if (polyline) polyline.setMap(null);
-            markers.forEach(marker => marker.setMap(null));
+            markers.forEach((marker) => marker.setMap(null));
         };
     }, [map, points]);
 
     return null;
 };
 
+// Główny komponent modala
 export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                                                                 isOpen,
                                                                 onClose,
@@ -581,28 +664,37 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
     const [center, setCenter] = useState({ lat: 52.2297, lng: 21.0122 });
     const [zoom, setZoom] = useState(12);
 
-    // Stan dla edycji kolejności
     const [editedPoints, setEditedPoints] = useState<RoutePoint[]>(points);
-    const [displayedPoints, setDisplayedPoints] = useState<RoutePoint[]>(points); // Punkty wyświetlane na mapie
+    const [displayedPoints, setDisplayedPoints] = useState<RoutePoint[]>(points);
     const [hasChanges, setHasChanges] = useState(false);
     const [needsRefresh, setNeedsRefresh] = useState(false);
 
-    // Walidacja
     const validation = validatePointsOrder(editedPoints);
 
-    // Resetuj stan przy otwarciu modala
     useEffect(() => {
         if (isOpen) {
+            console.log('🗺️ Modal otwarty z', points.length, 'punktami');
+            console.log('🆕 Nowych punktów:', points.filter(p => p.isNew).length);
+
+            const hasNewPoints = points.some(p => p.isNew);
+
             setEditedPoints(points);
             setDisplayedPoints(points);
-            setHasChanges(false);
+            // ⭐ ZMIANA: Jeśli są nowe punkty, od razu ustaw hasChanges na true
+            setHasChanges(hasNewPoints);
             setNeedsRefresh(false);
+
+            console.log('✅ hasChanges ustawione na:', hasNewPoints);
         }
     }, [isOpen, points]);
 
     const childIndexMap = getChildIndexMap(displayedPoints);
-    const validPoints = displayedPoints.filter(p => p.hasCoordinates && p.lat !== null && p.lng !== null);
+    const validPoints = displayedPoints.filter(
+        (p) => p.hasCoordinates && p.lat !== null && p.lng !== null
+    );
     const missingCoordinatesCount = displayedPoints.length - validPoints.length;
+    const newPointsCount = editedPoints.filter((p) => p.isNew).length;
+    const existingPointsCount = editedPoints.length - newPointsCount;
 
     useEffect(() => {
         if (validPoints.length > 0) {
@@ -624,78 +716,74 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
         [onClose]
     );
 
-    // Przesuń punkt w górę
     const handleMoveUp = (index: number) => {
         if (index === 0) return;
 
         const newPoints = [...editedPoints];
         [newPoints[index - 1], newPoints[index]] = [newPoints[index], newPoints[index - 1]];
 
-        // Aktualizuj order
         newPoints.forEach((point, idx) => {
             point.order = idx + 1;
         });
 
-        console.log('Przesunięto w górę, hasChanges będzie true');
+        console.log('⬆️ Przesunięto punkt w górę');
         setEditedPoints(newPoints);
         setHasChanges(true);
         setNeedsRefresh(true);
     };
 
-    // Przesuń punkt w dół
     const handleMoveDown = (index: number) => {
         if (index === editedPoints.length - 1) return;
 
         const newPoints = [...editedPoints];
         [newPoints[index], newPoints[index + 1]] = [newPoints[index + 1], newPoints[index]];
 
-        // Aktualizuj order
         newPoints.forEach((point, idx) => {
             point.order = idx + 1;
         });
 
-        console.log('Przesunięto w dół, hasChanges będzie true');
+        console.log('⬇️ Przesunięto punkt w dół');
         setEditedPoints(newPoints);
         setHasChanges(true);
         setNeedsRefresh(true);
     };
 
-    // Odśwież mapę
     const handleRefreshMap = () => {
         if (validation.isValid) {
+            console.log('🔄 Odświeżanie mapy z nową kolejnością');
             setDisplayedPoints([...editedPoints]);
             setNeedsRefresh(false);
         }
     };
 
-    // Zapisz zmiany
     const handleSave = () => {
-        console.log('handleSave wywołane');
-        console.log('validation.isValid:', validation.isValid);
-        console.log('onSaveOrder:', onSaveOrder);
-        console.log('hasChanges:', hasChanges);
+        console.log('💾 Zapisywanie:', {
+            hasChanges,
+            isValid: validation.isValid,
+            pointsCount: editedPoints.length,
+        });
 
         if (!validation.isValid) {
-            console.log('Walidacja nie przeszła');
+            console.log('❌ Walidacja nie przeszła');
             return;
         }
 
         if (onSaveOrder) {
-            console.log('Zapisuję nową kolejność:', editedPoints);
+            console.log('✅ Zapisuję nową kolejność punktów');
             onSaveOrder(editedPoints);
             setHasChanges(false);
             setNeedsRefresh(false);
             onClose();
         } else {
-            console.log('Brak callbacka onSaveOrder - tylko zamykam modal');
+            console.log('⚠️ Brak callbacka onSaveOrder');
             setHasChanges(false);
             setNeedsRefresh(false);
             onClose();
         }
     };
 
-    // Anuluj zmiany
     const handleCancel = () => {
+        console.log('❌ Anulowanie zmian');
         setEditedPoints(points);
         setDisplayedPoints(points);
         setHasChanges(false);
@@ -723,7 +811,7 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                         <MapContainer>
                             {validPoints.length >= 2 ? (
                                 <Map
-                                    key={displayedPoints.map(p => p.order).join('-')} // Force re-render on points change
+                                    key={displayedPoints.map((p) => p.order).join('-')}
                                     defaultCenter={center}
                                     defaultZoom={zoom}
                                     gestureHandling="greedy"
@@ -733,18 +821,29 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                                     <RouteRenderer points={displayedPoints} />
                                 </Map>
                             ) : (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    height: '100%',
-                                    padding: '2rem',
-                                    textAlign: 'center',
-                                    color: '#64748b'
-                                }}>
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        height: '100%',
+                                        padding: '2rem',
+                                        textAlign: 'center',
+                                        color: '#64748b',
+                                    }}
+                                >
                                     <div>
-                                        <AlertCircle size={48} style={{ margin: '0 auto 1rem', color: '#f59e0b' }} />
-                                        <p style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                        <AlertCircle
+                                            size={48}
+                                            style={{ margin: '0 auto 1rem', color: '#f59e0b' }}
+                                        />
+                                        <p
+                                            style={{
+                                                fontSize: '1rem',
+                                                fontWeight: 600,
+                                                marginBottom: '0.5rem',
+                                            }}
+                                        >
                                             Nie można wyświetlić trasy
                                         </p>
                                         <p style={{ fontSize: '0.875rem' }}>
@@ -756,39 +855,49 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                         </MapContainer>
 
                         <Sidebar>
+                            {newPointsCount > 0 && (
+                                <InfoBanner>
+                                    <Sparkles size={16} />
+                                    <div>
+                                        <strong>Dodajesz {newPointsCount === 2 ? 'nowe dziecko' : `${newPointsCount} nowe punkty`}</strong>
+                                        <br />
+                                        Ustaw właściwą kolejność używając strzałek
+                                    </div>
+                                </InfoBanner>
+                            )}
+
                             {missingCoordinatesCount > 0 && (
                                 <WarningBanner>
                                     <AlertCircle size={16} />
                                     <div>
-                                        {missingCoordinatesCount} {missingCoordinatesCount === 1 ? 'punkt nie ma' : 'punktów nie ma'} współrzędnych GPS i nie {missingCoordinatesCount === 1 ? 'jest wyświetlany' : 'są wyświetlane'} na mapie
+                                        {missingCoordinatesCount}{' '}
+                                        {missingCoordinatesCount === 1 ? 'punkt nie ma' : 'punktów nie ma'}{' '}
+                                        współrzędnych GPS i nie{' '}
+                                        {missingCoordinatesCount === 1 ? 'jest wyświetlany' : 'są wyświetlane'} na
+                                        mapie
                                     </div>
                                 </WarningBanner>
                             )}
 
                             <RouteStats>
                                 <StatRow>
-                                    <StatLabel>Punktów na trasie:</StatLabel>
+                                    <StatLabel>Wszystkich punktów:</StatLabel>
                                     <StatValue>{editedPoints.length}</StatValue>
+                                </StatRow>
+                                <StatRow>
+                                    <StatLabel>Istniejących:</StatLabel>
+                                    <StatValue>{existingPointsCount}</StatValue>
+                                </StatRow>
+                                <StatRow>
+                                    <StatLabel>Nowych:</StatLabel>
+                                    <StatValue style={{ color: '#8b5cf6' }}>{newPointsCount}</StatValue>
                                 </StatRow>
                                 <StatRow>
                                     <StatLabel>Na mapie:</StatLabel>
                                     <StatValue>{validPoints.length}</StatValue>
                                 </StatRow>
-                                <StatRow>
-                                    <StatLabel>Punktów odbioru:</StatLabel>
-                                    <StatValue>
-                                        {editedPoints.filter((p) => p.type === 'pickup').length}
-                                    </StatValue>
-                                </StatRow>
-                                <StatRow>
-                                    <StatLabel>Punktów dowozu:</StatLabel>
-                                    <StatValue>
-                                        {editedPoints.filter((p) => p.type === 'dropoff').length}
-                                    </StatValue>
-                                </StatRow>
                             </RouteStats>
 
-                            {/* Przycisk odświeżania mapy */}
                             {needsRefresh && (
                                 <ActionButtons>
                                     <ActionButton
@@ -802,28 +911,35 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                                 </ActionButtons>
                             )}
 
-                            {/* Błędy walidacji */}
-                            {!validation.isValid && validation.errors.map((error, idx) => (
-                                <ValidationError key={idx}>
-                                    <AlertCircle size={14} />
-                                    {error}
-                                </ValidationError>
-                            ))}
+                            {!validation.isValid &&
+                                validation.errors.map((error, idx) => (
+                                    <ValidationError key={idx}>
+                                        <AlertCircle size={14} />
+                                        {error}
+                                    </ValidationError>
+                                ))}
 
-                            {/* Lista punktów z przyciskami strzałek */}
                             {editedPoints.map((point, index) => {
                                 const childIndex = childIndexMap[point.childName] ?? 0;
                                 const label = generatePointLabel(point.type, childIndex);
 
                                 return (
                                     <PointCardWithControls
-                                        key={`${point.order}-${point.type}-${index}`}
+                                        key={`${point.stopId}-${index}`}
                                         $type={point.type}
                                         $noCoordinates={!point.hasCoordinates}
+                                        $isNew={point.isNew}
                                     >
+                                        {point.isNew && (
+                                            <NewPointBadge>
+                                                <Sparkles size={10} />
+                                                Nowy
+                                            </NewPointBadge>
+                                        )}
                                         <PointOrder
                                             $type={point.type}
                                             $noCoordinates={!point.hasCoordinates}
+                                            $isNew={point.isNew}
                                         >
                                             {label}
                                         </PointOrder>
@@ -863,24 +979,35 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                         </Sidebar>
                     </ModalBody>
 
-                    {/* Footer z przyciskami Zapisz/Anuluj */}
                     <ModalFooter>
-                        <FooterButton onClick={handleCancel}>
-                            <X size={16} />
-                            Anuluj
-                        </FooterButton>
-                        <FooterButton
-                            $variant="primary"
-                            onClick={() => {
-                                console.log('Kliknięto Zapisz, hasChanges:', hasChanges, 'validation.isValid:', validation.isValid);
-                                handleSave();
-                            }}
-                            disabled={!hasChanges || !validation.isValid}
-                            title={`hasChanges: ${hasChanges}, valid: ${validation.isValid}`}
-                        >
-                            <Save size={16} />
-                            Zapisz {!hasChanges && '(brak zmian)'} {!validation.isValid && '(błąd walidacji)'}
-                        </FooterButton>
+                        <FooterLeft>
+                            {hasChanges && validation.isValid && (
+                                <>
+                                    <AlertCircle size={16} style={{ color: '#f59e0b' }} />
+                                    Masz niezapisane zmiany
+                                </>
+                            )}
+                            {!validation.isValid && (
+                                <>
+                                    <AlertCircle size={16} style={{ color: '#dc2626' }} />
+                                    Napraw błędy przed zapisaniem
+                                </>
+                            )}
+                        </FooterLeft>
+                        <FooterRight>
+                            <FooterButton onClick={handleCancel}>
+                                <X size={16} />
+                                Anuluj
+                            </FooterButton>
+                            <FooterButton
+                                $variant="primary"
+                                onClick={handleSave}
+                                disabled={!hasChanges || !validation.isValid}
+                            >
+                                <Save size={16} />
+                                Zapisz i przypisz
+                            </FooterButton>
+                        </FooterRight>
                     </ModalFooter>
                 </ModalContainer>
             </Overlay>

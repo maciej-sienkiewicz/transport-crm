@@ -212,3 +212,27 @@ export interface UpcomingRouteItem {
     stopsCount: number;
     childStops: ChildStopInfo[];
 }
+
+export interface UnassignedScheduleItem {
+    scheduleId: string;
+    childId: string;
+    childFirstName: string;
+    childLastName: string;
+    scheduleName: string;
+    days: string[];
+    pickupTime: string;
+    pickupAddress: AddressWithCoordinates;
+    dropoffTime: string;
+    dropoffAddress: AddressWithCoordinates;
+    specialInstructions?: string;
+}
+
+export interface AutoMatchSuggestion {
+    scheduleId: string;
+    routeId: string;
+    routeName: string;
+    confidence: 'high' | 'medium' | 'low';
+    reasons: string[];
+    estimatedPickupTime: string;
+    estimatedDropoffTime: string;
+}
