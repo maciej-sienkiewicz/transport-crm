@@ -11,11 +11,11 @@ export const DashboardContainer = styled.div`
 export const DashboardHeader = styled.div`
     background: white;
     border-bottom: 1px solid ${({ theme }) => theme.colors.slate[200]};
-    padding: ${({ theme }) => theme.spacing.xl};
+    padding: ${({ theme }) => theme.spacing['2xl']};
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: ${({ theme }) => theme.spacing.lg};
+    gap: ${({ theme }) => theme.spacing.xl};
 
     @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
         flex-direction: column;
@@ -34,122 +34,44 @@ export const HeaderTitle = styled.h1`
     display: flex;
     align-items: center;
     gap: ${({ theme }) => theme.spacing.md};
-    font-size: 1.875rem;
+    font-size: 2rem;
     font-weight: 700;
     color: ${({ theme }) => theme.colors.slate[900]};
 
     @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-        font-size: 1.5rem;
+        font-size: 1.75rem;
     }
 `;
 
-export const HeaderSubtitle = styled.p`
-    font-size: 1rem;
-    color: ${({ theme }) => theme.colors.slate[600]};
-`;
+export const DateSelectorLarge = styled.div`
+    min-width: 280px;
 
-export const HeaderActions = styled.div`
-    display: flex;
-    gap: ${({ theme }) => theme.spacing.md};
-    align-items: flex-end;
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
-    }
-`;
-
-export const DateSelector = styled.div`
-    min-width: 200px;
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-        width: 100%;
-    }
-`;
-
-export const StatsBar = styled.div`
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: ${({ theme }) => theme.spacing.lg};
-    padding: ${({ theme }) => theme.spacing.xl};
-    background: white;
-    border-bottom: 1px solid ${({ theme }) => theme.colors.slate[200]};
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-        grid-template-columns: 1fr;
+    input[type="date"] {
+        font-size: 1.25rem;
+        font-weight: 600;
         padding: ${({ theme }) => theme.spacing.lg};
-        gap: ${({ theme }) => theme.spacing.md};
+        border: 2px solid ${({ theme }) => theme.colors.primary[500]};
+        border-radius: ${({ theme }) => theme.borderRadius.xl};
+        background: ${({ theme }) => theme.colors.primary[50]};
+        color: ${({ theme }) => theme.colors.primary[900]};
+        cursor: pointer;
+        transition: all ${({ theme }) => theme.transitions.fast};
+
+        &:hover {
+            background: ${({ theme }) => theme.colors.primary[100]};
+            border-color: ${({ theme }) => theme.colors.primary[600]};
+        }
+
+        &:focus {
+            outline: none;
+            ring: 2px solid ${({ theme }) => theme.colors.primary[500]};
+            box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary[100]};
+        }
     }
-`;
 
-export const StatCard = styled.div`
-    display: flex;
-    align-items: center;
-    gap: ${({ theme }) => theme.spacing.md};
-    padding: ${({ theme }) => theme.spacing.lg};
-    background: ${({ theme }) => theme.colors.slate[50]};
-    border: 1px solid ${({ theme }) => theme.colors.slate[200]};
-    border-radius: ${({ theme }) => theme.borderRadius.xl};
-    transition: all ${({ theme }) => theme.transitions.normal};
-
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: ${({ theme }) => theme.shadows.md};
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        width: 100%;
     }
-`;
-
-export const StatIcon = styled.div<{ $variant: 'total' | 'matched' | 'unmatched' | 'progress' }>`
-    width: 56px;
-    height: 56px;
-    border-radius: ${({ theme }) => theme.borderRadius.xl};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-
-    ${({ $variant, theme }) => {
-    switch ($variant) {
-        case 'total':
-            return `
-                    background: ${theme.colors.primary[100]};
-                    color: ${theme.colors.primary[700]};
-                `;
-        case 'matched':
-            return `
-                    background: ${theme.colors.success[100]};
-                    color: ${theme.colors.success[700]};
-                `;
-        case 'unmatched':
-            return `
-                    background: ${theme.colors.warning[100]};
-                    color: ${theme.colors.warning[700]};
-                `;
-        case 'progress':
-            return `
-                    background: ${theme.colors.accent[400]}33;
-                    color: ${theme.colors.accent[600]};
-                `;
-    }
-}}
-`;
-
-export const StatContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: ${({ theme }) => theme.spacing.xs};
-`;
-
-export const StatLabel = styled.div`
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: ${({ theme }) => theme.colors.slate[600]};
-`;
-
-export const StatValue = styled.div`
-    font-size: 1.875rem;
-    font-weight: 700;
-    color: ${({ theme }) => theme.colors.slate[900]};
 `;
 
 export const DashboardBody = styled.div`
@@ -199,17 +121,4 @@ export const PanelTitle = styled.h2`
     font-size: 1.125rem;
     font-weight: 600;
     color: ${({ theme }) => theme.colors.slate[900]};
-`;
-
-export const FilterBar = styled.div`
-    display: flex;
-    gap: ${({ theme }) => theme.spacing.sm};
-    padding: ${({ theme }) => theme.spacing.md} ${({ theme }) => theme.spacing.xl};
-    background: white;
-    border-bottom: 1px solid ${({ theme }) => theme.colors.slate[200]};
-
-    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-        padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.lg};
-        overflow-x: auto;
-    }
 `;

@@ -108,7 +108,7 @@ export const CHECK_TYPE_CONFIG: Record<CheckType, CheckTypeConfig> = {
             if (status !== 'OK') {
                 return {
                     label: 'Przypisz do tras',
-                    route: '/children?filter=no-routes'
+                    route: '/routes/unassigned'
                 };
             }
             return null;

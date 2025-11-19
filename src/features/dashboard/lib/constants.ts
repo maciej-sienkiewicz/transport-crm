@@ -18,7 +18,7 @@ export const ALERT_TYPE_CONFIG: Record<AlertType, {
                 : `${count} ${count === 1 ? 'dziecko wymaga' : 'dzieci wymagają'} przypisania do tras`,
         primaryAction: {
             label: 'Przypisz do tras',
-            route: '/children?filter=no-routes'
+            route: '/routes/unassigned'
         }
     },
     ROUTES_NO_DRIVERS: {

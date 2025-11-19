@@ -1,7 +1,7 @@
 // src/features/routes/components/SmartAssignmentDashboard/UnassignedSchedulesList.tsx
 import React from 'react';
-import { Clock, MapPin, AlertCircle, CheckCircle2, Zap } from 'lucide-react';
-import { UnassignedScheduleItem, AutoMatchSuggestion } from '../../types';
+import { Clock, MapPin, Sparkles } from 'lucide-react';
+import { UnassignedScheduleItem } from '../../types';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Button } from '@/shared/ui/Button';
 import {
@@ -11,35 +11,36 @@ import {
     ChildInfo,
     ChildName,
     ScheduleName,
-    MatchBadge,
     ScheduleBody,
     ScheduleDetail,
     DetailLabel,
     DetailValue,
     AddressInfo,
     ScheduleFooter,
-    SuggestionBox,
-    SuggestionTitle,
-    SuggestionDetails,
     EmptyState,
 } from './UnassignedSchedulesList.styles';
+import { CheckCircle2 } from 'lucide-react';
 
 interface UnassignedSchedulesListProps {
     schedules: UnassignedScheduleItem[];
-    autoMatches: Map<string, AutoMatchSuggestion>;
     selectedScheduleId: string | null;
     onSelectSchedule: (id: string) => void;
-    onQuickAssign: (scheduleId: string, routeId: string) => Promise<void>;
+    onShowSuggestions: (schedule: UnassignedScheduleItem) => void;
+    onDragStart: (scheduleId: string) => void;
+    onDragEnd: () => void;
     isLoading: boolean;
+    hasAnyRoutes: boolean;
 }
 
 export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = ({
                                                                                     schedules,
-                                                                                    autoMatches,
                                                                                     selectedScheduleId,
                                                                                     onSelectSchedule,
-                                                                                    onQuickAssign,
+                                                                                    onShowSuggestions,
+                                                                                    onDragStart,
+                                                                                    onDragEnd,
                                                                                     isLoading,
+                                                                                    hasAnyRoutes,
                                                                                 }) => {
     if (isLoading) {
         return <LoadingSpinner />;
@@ -58,15 +59,19 @@ export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = (
     return (
         <SchedulesListContainer>
             {schedules.map((schedule) => {
-                const match = autoMatches.get(schedule.scheduleId);
                 const isSelected = selectedScheduleId === schedule.scheduleId;
 
                 return (
                     <ScheduleCard
                         key={schedule.scheduleId}
-                        $hasMatch={Boolean(match)}
+                        $hasMatch={false}
                         $isSelected={isSelected}
+                        draggable
+                        onDragStart={() => onDragStart(schedule.scheduleId)}
+                        onDragEnd={onDragEnd}
                         onClick={() => onSelectSchedule(schedule.scheduleId)}
+                        style={{ cursor: 'grab' }}
+                        onDragOver={(e) => e.preventDefault()}
                     >
                         <ScheduleHeader>
                             <ChildInfo>
@@ -75,20 +80,6 @@ export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = (
                                 </ChildName>
                                 <ScheduleName>{schedule.scheduleName}</ScheduleName>
                             </ChildInfo>
-                            {match && (
-                                <MatchBadge $confidence={match.confidence}>
-                                    {match.confidence === 'high' && <Zap size={14} />}
-                                    {match.confidence === 'high' && 'Pewne'}
-                                    {match.confidence === 'medium' && 'Średnie'}
-                                    {match.confidence === 'low' && 'Słabe'}
-                                </MatchBadge>
-                            )}
-                            {!match && (
-                                <MatchBadge $confidence="none">
-                                    <AlertCircle size={14} />
-                                    Brak dopasowania
-                                </MatchBadge>
-                            )}
                         </ScheduleHeader>
 
                         <ScheduleBody>
@@ -125,29 +116,19 @@ export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = (
                             </AddressInfo>
                         </ScheduleBody>
 
-                        {match && match.confidence === 'high' && (
+                        {hasAnyRoutes && (
                             <ScheduleFooter>
-                                <SuggestionBox>
-                                    <SuggestionTitle>
-                                        <CheckCircle2 size={16} />
-                                        Sugerowana trasa
-                                    </SuggestionTitle>
-                                    <SuggestionDetails>
-                                        <strong>{match.routeName}</strong>
-                                        <span>
-                                            {match.reasons[0]}
-                                        </span>
-                                    </SuggestionDetails>
-                                </SuggestionBox>
                                 <Button
                                     variant="primary"
                                     size="sm"
+                                    fullWidth
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        onQuickAssign(schedule.scheduleId, match.routeId);
+                                        onShowSuggestions(schedule);
                                     }}
                                 >
-                                    Akceptuj
+                                    <Sparkles size={16} />
+                                    Pokaż sugestie
                                 </Button>
                             </ScheduleFooter>
                         )}
