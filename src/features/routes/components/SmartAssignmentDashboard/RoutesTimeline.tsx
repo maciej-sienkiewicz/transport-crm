@@ -1,12 +1,15 @@
 // src/features/routes/components/SmartAssignmentDashboard/RoutesTimeline.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, Users, Car, User, AlertCircle } from 'lucide-react';
 import { RouteListItem, AutoMatchSuggestion, UnassignedScheduleItem } from '../../types';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Button } from '@/shared/ui/Button';
 import { Badge } from '@/shared/ui/Badge';
 import { RouteMapModal } from '../MultiRoutePlanner/RouteMapModal';
+import { ConfirmMapViewModal } from './ConfirmMapViewModal';
 import { useRoute } from '../../hooks/useRoute';
+import { useReorderStops } from '../../hooks/useReorderStops';
+import toast from 'react-hot-toast';
 import {
     TimelineContainer,
     RouteTimelineCard,
@@ -31,11 +34,7 @@ interface RoutesTimelineProps {
     selectedScheduleId: string | null;
     selectedScheduleData: UnassignedScheduleItem | null;
     autoMatches: Map<string, AutoMatchSuggestion>;
-    onAssignToRoute: (
-        scheduleId: string,
-        routeId: string,
-        reorderedPoints?: RoutePoint[]
-    ) => Promise<void>;
+    onAssignToRoute: (scheduleId: string, routeId: string) => Promise<void>;
     isLoading: boolean;
 }
 
@@ -62,6 +61,18 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
                                                                   onAssignToRoute,
                                                                   isLoading,
                                                               }) => {
+    const [confirmModalState, setConfirmModalState] = useState<{
+        isOpen: boolean;
+        childName: string;
+        routeName: string;
+        routeId: string | null;
+    }>({
+        isOpen: false,
+        childName: '',
+        routeName: '',
+        routeId: null,
+    });
+
     const [mapModalState, setMapModalState] = useState<{
         isOpen: boolean;
         routeId: string | null;
@@ -74,21 +85,21 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
         points: [],
     });
 
-    const [selectedRouteIdForFetch, setSelectedRouteIdForFetch] = useState<string | null>(null);
+    const [routeIdToFetch, setRouteIdToFetch] = useState<string | null>(null);
 
-    // Pobierz szczegóły trasy
-    const { data: selectedRouteData, isLoading: isLoadingRouteDetails } = useRoute(
-        selectedRouteIdForFetch || ''
+    const { data: routeDataForMap, isLoading: isLoadingRouteDetails } = useRoute(
+        routeIdToFetch || ''
     );
 
-    // Gdy dane trasy są gotowe, otwórz modal z pełnymi danymi
-    useEffect(() => {
-        if (selectedRouteData && selectedScheduleData && selectedRouteIdForFetch) {
-            console.log('📍 Przygotowuję punkty trasy z', selectedRouteData.stops.length, 'istniejących stopów');
+    const reorderStops = useReorderStops();
 
-            // Konwertuj istniejące stopy trasy na format RoutePoint
-            const existingPoints: RoutePoint[] = selectedRouteData.stops
-                .filter(stop => !stop.isCancelled) // Pomijamy anulowane stopy
+    // Gdy dane trasy są gotowe dla mapy - POPRAWIONY useEffect
+    useEffect(() => {
+        if (routeDataForMap && routeIdToFetch) {
+            console.log('📍 Dane trasy pobrane, przygotowuję punkty dla mapy');
+
+            const existingPoints: RoutePoint[] = routeDataForMap.stops
+                .filter(stop => !stop.isCancelled)
                 .sort((a, b) => a.stopOrder - b.stopOrder)
                 .map(stop => ({
                     address: `${stop.address.street} ${stop.address.houseNumber}${
@@ -105,63 +116,19 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
                     isNew: false,
                 }));
 
-            console.log('✅ Istniejące punkty:', existingPoints.length);
-
-            // Dodaj nowe stopy dla wybranego dziecka
-            const newPickupPoint: RoutePoint = {
-                address: `${selectedScheduleData.pickupAddress.street} ${selectedScheduleData.pickupAddress.houseNumber}${
-                    selectedScheduleData.pickupAddress.apartmentNumber
-                        ? `/${selectedScheduleData.pickupAddress.apartmentNumber}`
-                        : ''
-                }, ${selectedScheduleData.pickupAddress.city}`,
-                lat: selectedScheduleData.pickupAddress.latitude ?? null,
-                lng: selectedScheduleData.pickupAddress.longitude ?? null,
-                type: 'pickup',
-                childName: `${selectedScheduleData.childFirstName} ${selectedScheduleData.childLastName}`,
-                order: existingPoints.length + 1,
-                hasCoordinates:
-                    selectedScheduleData.pickupAddress.latitude != null &&
-                    selectedScheduleData.pickupAddress.longitude != null,
-                stopId: `temp-pickup-${selectedScheduleData.scheduleId}`,
-                scheduleId: selectedScheduleData.scheduleId,
-                isNew: true,
-            };
-
-            const newDropoffPoint: RoutePoint = {
-                address: `${selectedScheduleData.dropoffAddress.street} ${selectedScheduleData.dropoffAddress.houseNumber}${
-                    selectedScheduleData.dropoffAddress.apartmentNumber
-                        ? `/${selectedScheduleData.dropoffAddress.apartmentNumber}`
-                        : ''
-                }, ${selectedScheduleData.dropoffAddress.city}`,
-                lat: selectedScheduleData.dropoffAddress.latitude ?? null,
-                lng: selectedScheduleData.dropoffAddress.longitude ?? null,
-                type: 'dropoff',
-                childName: `${selectedScheduleData.childFirstName} ${selectedScheduleData.childLastName}`,
-                order: existingPoints.length + 2,
-                hasCoordinates:
-                    selectedScheduleData.dropoffAddress.latitude != null &&
-                    selectedScheduleData.dropoffAddress.longitude != null,
-                stopId: `temp-dropoff-${selectedScheduleData.scheduleId}`,
-                scheduleId: selectedScheduleData.scheduleId,
-                isNew: true,
-            };
-
-            const allPoints = [...existingPoints, newPickupPoint, newDropoffPoint];
-
-            console.log('🎯 Wszystkie punkty razem:', allPoints.length);
-            console.log('🆕 Nowe punkty:', allPoints.filter(p => p.isNew).length);
+            console.log('✅ Otwieram modal z', existingPoints.length, 'punktami');
 
             setMapModalState({
                 isOpen: true,
-                routeId: selectedRouteIdForFetch,
-                routeName: selectedRouteData.routeName,
-                points: allPoints,
+                routeId: routeIdToFetch,
+                routeName: routeDataForMap.routeName,
+                points: existingPoints,
             });
 
-            // Reset ID po otwarciu modala
-            setSelectedRouteIdForFetch(null);
+            // Reset routeIdToFetch DOPIERO TUTAJ
+            setRouteIdToFetch(null);
         }
-    }, [selectedRouteData, selectedScheduleData, selectedRouteIdForFetch]);
+    }, [routeDataForMap, routeIdToFetch]); // Usunięto selectedScheduleData z zależności
 
     if (isLoading) {
         return <LoadingSpinner />;
@@ -187,28 +154,101 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
         )
         : null;
 
-    const handleOpenMapModal = (route: RouteListItem) => {
-        if (!selectedScheduleData) {
+    const handleAssignClick = async (route: RouteListItem) => {
+        if (!selectedScheduleData || !selectedScheduleId) {
             console.error('❌ Brak danych wybranego harmonogramu');
             return;
         }
 
-        console.log('🗺️ Otwieranie mapy dla trasy:', route.id);
-        // Ustaw ID trasy do pobrania szczegółów
-        setSelectedRouteIdForFetch(route.id);
+        console.log('🎯 Przypisuję dziecko na koniec trasy:', route.id);
+
+        try {
+            // 1. Przypisz dziecko na koniec trasy
+            await onAssignToRoute(selectedScheduleId, route.id);
+
+            // 2. Pokaż modal z pytaniem o mapę
+            setConfirmModalState({
+                isOpen: true,
+                childName: `${selectedScheduleData.childFirstName} ${selectedScheduleData.childLastName}`,
+                routeName: route.routeName,
+                routeId: route.id,
+            });
+        } catch (error) {
+            console.error('❌ Błąd podczas przypisywania:', error);
+        }
     };
 
-    const handleSaveOrderFromMap = async (newPoints: RoutePoint[]) => {
-        if (!mapModalState.routeId || !selectedScheduleId) {
-            console.error('❌ Brak routeId lub scheduleId');
+    const handleViewMapFromConfirm = () => {
+        const routeId = confirmModalState.routeId;
+
+        if (!routeId) {
+            console.error('❌ Brak routeId w confirmModalState');
             return;
         }
 
-        console.log('💾 Zapisywanie nowej kolejności:', newPoints.length, 'punktów');
+        console.log('🗺️ Użytkownik chce zobaczyć mapę dla trasy:', routeId);
+
+        // Zamknij modal potwierdzenia
+        setConfirmModalState({
+            isOpen: false,
+            childName: '',
+            routeName: '',
+            routeId: null
+        });
+
+        // Ustaw ID trasy do pobrania - to uruchomi useEffect
+        setRouteIdToFetch(routeId);
+    };
+
+    const handleCloseConfirmModal = () => {
+        console.log('🚪 Zamykanie modala potwierdzenia');
+        setConfirmModalState({
+            isOpen: false,
+            childName: '',
+            routeName: '',
+            routeId: null
+        });
+    };
+
+    const handleSaveOrderFromMap = async (newPoints: RoutePoint[]) => {
+        const routeId = mapModalState.routeId;
+
+        if (!routeId) {
+            console.error('❌ Brak routeId w mapModalState');
+            return;
+        }
+
+        console.log('💾 Zapisywanie nowej kolejności z mapy:', newPoints.length, 'punktów');
 
         try {
-            await onAssignToRoute(selectedScheduleId, mapModalState.routeId, newPoints);
+            const toastId = toast.loading('Zapisywanie nowej kolejności...');
 
+            // Przygotuj dane dla API - mapuj punkty na stopOrders
+            const stopOrders = newPoints
+                .filter(p => !p.stopId.startsWith('temp-')) // Pomijamy tymczasowe ID
+                .map(p => ({
+                    stopId: p.stopId,
+                    newOrder: p.order,
+                }));
+
+            console.log('📤 StopOrders do wysłania:', stopOrders);
+
+            if (stopOrders.length === 0) {
+                throw new Error('Brak stopów do zaktualizowania');
+            }
+
+            // Wywołaj mutację
+            await reorderStops.mutateAsync({
+                routeId,
+                stopOrders,
+            });
+
+            toast.dismiss(toastId);
+            toast.success('Kolejność stopów została zaktualizowana');
+
+            console.log('✅ Kolejność zapisana pomyślnie');
+
+            // Zamknij modal
             setMapModalState({
                 isOpen: false,
                 routeId: null,
@@ -216,7 +256,8 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
                 points: [],
             });
         } catch (error) {
-            console.error('❌ Błąd podczas przypisywania:', error);
+            console.error('❌ Błąd podczas zapisywania kolejności:', error);
+            toast.error('Nie udało się zapisać nowej kolejności');
         }
     };
 
@@ -234,8 +275,7 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
         <>
             <TimelineContainer>
                 {routes.map((route) => {
-                    const isSuggested =
-                        selectedMatch && selectedMatch[1].routeId === route.id;
+                    const isSuggested = selectedMatch && selectedMatch[1].routeId === route.id;
                     const matchConfidence = isSuggested ? selectedMatch[1].confidence : null;
 
                     const capacityUsed = route.stopsCount / 2;
@@ -317,14 +357,10 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
                                     <Button
                                         variant={isSuggested ? 'primary' : 'secondary'}
                                         fullWidth
-                                        onClick={() => handleOpenMapModal(route)}
-                                        disabled={isLoadingRouteDetails && selectedRouteIdForFetch === route.id}
-                                        isLoading={isLoadingRouteDetails && selectedRouteIdForFetch === route.id}
+                                        onClick={() => handleAssignClick(route)}
                                     >
                                         <MapPin size={16} />
-                                        {isLoadingRouteDetails && selectedRouteIdForFetch === route.id
-                                            ? 'Ładowanie...'
-                                            : 'Zobacz na mapie i przypisz'}
+                                        Przypisz do trasy
                                     </Button>
                                 </RouteCardFooter>
                             )}
@@ -332,6 +368,15 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
                     );
                 })}
             </TimelineContainer>
+
+            {/* Modal potwierdzenia z opcją podglądu mapy */}
+            <ConfirmMapViewModal
+                isOpen={confirmModalState.isOpen}
+                childName={confirmModalState.childName}
+                routeName={confirmModalState.routeName}
+                onViewMap={handleViewMapFromConfirm}
+                onClose={handleCloseConfirmModal}
+            />
 
             {/* Modal z mapą */}
             {mapModalState.isOpen && (

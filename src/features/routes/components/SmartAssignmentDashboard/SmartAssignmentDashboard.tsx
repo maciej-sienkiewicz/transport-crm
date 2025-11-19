@@ -40,7 +40,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
         tomorrow.toISOString().split('T')[0]
     );
     const [filterSchedules, setFilterSchedules] = useState<'all' | 'matched' | 'unmatched'>('all');
-    const [sortBy, setSortBy] = useState<'time' | 'priority' | 'location'>('priority');
+    const [sortBy, ] = useState<'time' | 'priority' | 'location'>('priority');
     const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
     const [assignedScheduleIds, setAssignedScheduleIds] = useState<Set<string>>(new Set());
 
@@ -210,57 +210,35 @@ export const SmartAssignmentDashboard: React.FC = () => {
         }
     }, [autoMatches, unassignedData, addScheduleToRoute]);
 
-    // Handler dla manualnego przypisania z opcjonalnym reorderowaniem
+// Fragment z zmianą w handleManualAssign
     const handleManualAssign = useCallback(
-        async (
-            scheduleId: string,
-            routeId: string,
-            reorderedPoints?: RoutePoint[]
-        ) => {
+        async (scheduleId: string, routeId: string) => {
             const schedule = unassignedData?.schedules.find(s => s.scheduleId === scheduleId);
             if (!schedule) {
                 console.error('❌ Nie znaleziono harmonogramu:', scheduleId);
                 return;
             }
 
-            console.log('📝 handleManualAssign wywołane:', {
-                scheduleId,
-                routeId,
-                hasReorderedPoints: !!reorderedPoints,
-                pointsCount: reorderedPoints?.length
-            });
+            console.log('📝 handleManualAssign wywołane:', { scheduleId, routeId });
 
-            // Optimistic update - usuń natychmiast z UI
+            // Optimistic update
             setAssignedScheduleIds(prev => new Set(prev).add(scheduleId));
 
             try {
                 const toastId = toast.loading('Przypisuję dziecko do trasy...');
 
-                // Znajdź pickup i dropoff dla nowego dziecka w reorderedPoints
-                let pickupOrder = 999;
-                let dropoffOrder = 999;
-
-                if (reorderedPoints && reorderedPoints.length > 0) {
-                    const pickupPoint = reorderedPoints.find(
-                        p => p.scheduleId === scheduleId && p.type === 'pickup'
-                    );
-                    const dropoffPoint = reorderedPoints.find(
-                        p => p.scheduleId === scheduleId && p.type === 'dropoff'
-                    );
-
-                    if (pickupPoint) {
-                        pickupOrder = pickupPoint.order;
-                        console.log('✅ Pickup order:', pickupOrder);
-                    }
-                    if (dropoffPoint) {
-                        dropoffOrder = dropoffPoint.order;
-                        console.log('✅ Dropoff order:', dropoffOrder);
-                    }
+                // Pobierz aktualną trasę aby poznać liczbę stopów
+                const currentRoute = routesData?.content.find(r => r.id === routeId);
+                if (!currentRoute) {
+                    throw new Error('Nie znaleziono trasy');
                 }
 
-                console.log('📤 Krok 1: Dodaję dziecko do trasy z orderami:', { pickupOrder, dropoffOrder });
+                // Przypisz na sam koniec trasy
+                const pickupOrder = currentRoute.stopsCount + 1;
+                const dropoffOrder = currentRoute.stopsCount + 2;
 
-                // Najpierw dodaj dziecko do trasy
+                console.log('📤 Przypisuję dziecko na koniec:', { pickupOrder, dropoffOrder });
+
                 await addScheduleToRoute.mutateAsync({
                     routeId,
                     data: {
@@ -279,52 +257,25 @@ export const SmartAssignmentDashboard: React.FC = () => {
                     },
                 });
 
-                console.log('✅ Dziecko dodane do trasy');
-
-                // Jeśli użytkownik zmienił kolejność istniejących stopów, zaktualizuj ją
-                if (reorderedPoints && reorderedPoints.length > 0) {
-                    console.log('📤 Krok 2: Sprawdzam czy trzeba zaktualizować kolejność stopów');
-
-                    // Przygotuj stopOrders - mapuj tylko istniejące stopy (nie temp-*)
-                    const existingStopsOrders = reorderedPoints
-                        .filter(p => !p.stopId.startsWith('temp-')) // Pomijamy temporary IDs
-                        .map(p => ({
-                            stopId: p.stopId,
-                            newOrder: p.order
-                        }));
-
-                    if (existingStopsOrders.length > 0) {
-                        console.log('📤 Aktualizuję kolejność', existingStopsOrders.length, 'istniejących stopów');
-
-                        await reorderStops.mutateAsync({
-                            routeId,
-                            stopOrders: existingStopsOrders
-                        });
-
-                        console.log('✅ Kolejność zaktualizowana');
-                    } else {
-                        console.log('ℹ️ Brak istniejących stopów do przesortowania (same nowe)');
-                    }
-                }
-
                 toast.dismiss(toastId);
-                toast.success(`${schedule.childFirstName} ${schedule.childLastName} przypisany do trasy`);
+                // Toast sukcesu zostanie pokazany w modalu potwierdzenia
                 setSelectedScheduleId(null);
 
-                console.log('✅ Operacja zakończona pomyślnie');
+                console.log('✅ Dziecko przypisane');
             } catch (error) {
                 console.error('❌ Błąd przypisywania:', error);
                 toast.dismiss();
 
-                // Rollback optimistic update w przypadku błędu
                 setAssignedScheduleIds(prev => {
                     const newSet = new Set(prev);
                     newSet.delete(scheduleId);
                     return newSet;
                 });
+
+                throw error; // Re-throw aby RoutesTimeline mogło obsłużyć
             }
         },
-        [unassignedData, addScheduleToRoute, reorderStops]
+        [unassignedData, routesData, addScheduleToRoute]
     );
 
     // Resetuj lokalny stan gdy zmienia się data
