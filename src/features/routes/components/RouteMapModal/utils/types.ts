@@ -33,3 +33,11 @@ export interface RouteStats {
     validPoints: number;
     missingCoordinates: number;
 }
+
+export interface StopNumberEditorState {
+    isOpen: boolean;
+    point: RoutePoint | null;
+    currentOrder: number;
+    newOrder: string;
+    position: { x: number; y: number } | null;
+}

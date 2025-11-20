@@ -167,7 +167,7 @@ export const RouteMapTile: React.FC<RouteMapTileProps> = ({
             <APIProvider apiKey={API_KEY}>
                 <MapUI
                     defaultCenter={defaultMapCenter}
-                    defaultZoom={12}
+                    defaultZoom={13}
                     mapId="route-detail-map"
                     style={{ width: '100%', height: '100%' }}
                     gestureHandling="greedy"

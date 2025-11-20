@@ -12,6 +12,7 @@ interface MapViewProps {
     displayedPoints: RoutePoint[];
     originalChildIndexMap: Record<string, number>;
     hasValidPoints: boolean;
+    onMarkerClick?: (point: RoutePoint, screenPosition: { x: number; y: number }) => void;
 }
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -21,6 +22,7 @@ export const MapView: React.FC<MapViewProps> = ({
                                                     displayedPoints,
                                                     originalChildIndexMap,
                                                     hasValidPoints,
+                                                    onMarkerClick,
                                                 }) => {
     if (!hasValidPoints) {
         return (
@@ -69,6 +71,7 @@ export const MapView: React.FC<MapViewProps> = ({
             <RouteRenderer
                 points={displayedPoints}
                 originalChildIndexMap={originalChildIndexMap}
+                onMarkerClick={onMarkerClick}
             />
         </Map>
     );

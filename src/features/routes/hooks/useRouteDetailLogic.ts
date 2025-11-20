@@ -11,6 +11,7 @@ import { ExecutionStatus, RouteStatus, RouteStop } from '@/features/routes/types
 import { useRoute } from '@/features/routes/hooks/useRoute';
 import { useDeleteRoute } from '@/features/routes/hooks/useDeleteRoute';
 import { useReorderStops } from '@/features/routes/hooks/useReorderStops';
+import { RoutePoint } from '@/features/routes/components/RouteMapModal/utils/types'; // DODANE
 
 export const statusLabels: Record<RouteStatus, string> = {
     PLANNED: 'Zaplanowana',
@@ -43,16 +44,6 @@ export interface ChildSummaryItem {
     scheduleId: string;
     pickupStop: RouteStop | null;
     dropoffStop: RouteStop | null;
-}
-
-interface MapPoint {
-    address: string;
-    lat: number | null;
-    lng: number | null;
-    type: 'pickup' | 'dropoff';
-    childName: string;
-    order: number;
-    hasCoordinates: boolean;
 }
 
 const API_KEY = 'AIzaSyAr0qHze3moiMPHo-cwv171b8luH-anyXA';
@@ -109,18 +100,34 @@ export const useRouteDetailLogic = (id: string) => {
         return Array.from(childrenMap.values());
     }, [route?.stops]);
 
-    const getMapPoints = useCallback((): MapPoint[] => {
+    // POPRAWIONA FUNKCJA - teraz zwraca RoutePoint[] zamiast MapPoint[]
+    const getMapPoints = useCallback((): RoutePoint[] => {
         if (!route?.stops) return [];
 
-        return sortedStops.map(stop => ({
-            address: `${stop.address.street} ${stop.address.houseNumber}, ${stop.address.city}`,
-            lat: stop.address.latitude ?? null,
-            lng: stop.address.longitude ?? null,
-            type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
-            childName: `${stop.childFirstName} ${stop.childLastName}`,
-            order: stop.stopOrder,
-            hasCoordinates: stop.address.latitude != null && stop.address.longitude != null,
-        }));
+        return sortedStops.map((stop, index) => {
+            const point: RoutePoint = {
+                address: `${stop.address.street} ${stop.address.houseNumber}, ${stop.address.city}`,
+                lat: stop.address.latitude ?? null,
+                lng: stop.address.longitude ?? null,
+                type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
+                childName: `${stop.childFirstName} ${stop.childLastName}`,
+                order: stop.stopOrder, // UŻYJ stopOrder zamiast index + 1
+                hasCoordinates: stop.address.latitude != null && stop.address.longitude != null,
+                stopId: stop.id, // ← KLUCZOWE: DODANE stopId!
+                scheduleId: stop.scheduleId, // ← KLUCZOWE: DODANE scheduleId!
+                isNew: false,
+            };
+
+            console.log(`📍 Tworzę RoutePoint ${index}:`, {
+                stopId: point.stopId,
+                scheduleId: point.scheduleId,
+                childName: point.childName,
+                order: point.order,
+                type: point.type,
+            });
+
+            return point;
+        });
     }, [route?.stops, sortedStops]);
 
     const defaultMapCenter = useMemo(() => {
@@ -153,6 +160,7 @@ export const useRouteDetailLogic = (id: string) => {
             toast.error('Brak stopów do edycji');
             return;
         }
+        console.log('🗺️ Otwieranie modala mapy z punktami:', getMapPoints());
         setIsMapModalOpen(true);
     };
 
@@ -160,29 +168,22 @@ export const useRouteDetailLogic = (id: string) => {
         setIsMapModalOpen(false);
     };
 
-    const handleSaveOrderFromMap = useCallback(async (newMapPoints: MapPoint[]) => {
+    // POPRAWIONA FUNKCJA - używa stopId zamiast childName
+    const handleSaveOrderFromMap = useCallback(async (newMapPoints: RoutePoint[]) => {
         if (!route) return;
 
         try {
             console.log('📤 Zapisywanie nowej kolejności z mapy:', newMapPoints);
 
-            // Mapujemy punkty mapy na stopy według childName i type
+            // Mapujemy punkty mapy na stopOrders używając stopId
             const stopOrders = newMapPoints.map((point, index) => {
-                // Znajdź odpowiadający stop po childName i type
-                const matchingStop = sortedStops.find(
-                    stop =>
-                        `${stop.childFirstName} ${stop.childLastName}` === point.childName &&
-                        ((point.type === 'pickup' && stop.stopType === 'PICKUP') ||
-                            (point.type === 'dropoff' && stop.stopType === 'DROPOFF'))
-                );
-
-                if (!matchingStop) {
-                    console.error('❌ Nie znaleziono stopu dla punktu:', point);
-                    throw new Error(`Nie znaleziono stopu dla: ${point.childName}`);
+                if (!point.stopId) {
+                    console.error('❌ Punkt nie ma stopId:', point);
+                    throw new Error(`Punkt ${point.childName} nie ma stopId`);
                 }
 
                 return {
-                    stopId: matchingStop.id,
+                    stopId: point.stopId,
                     newOrder: index + 1,
                 };
             });
@@ -203,7 +204,7 @@ export const useRouteDetailLogic = (id: string) => {
             console.error('❌ Błąd podczas zapisywania kolejności:', error);
             toast.error('Nie udało się zapisać nowej kolejności');
         }
-    }, [route, sortedStops, reorderStops, refetch]);
+    }, [route, reorderStops, refetch]);
 
     const handleStopHover = (stop: RouteStop) => {
         setHoveredStopId(stop.id);
@@ -245,12 +246,10 @@ export const useRouteDetailLogic = (id: string) => {
             await deleteRoute.mutateAsync(route.id);
             toast.success('Trasa została pomyślnie usunięta');
 
-            // Przekierowanie do listy tras po 1 sekundzie
             setTimeout(() => {
                 window.location.href = '/routes';
             }, 200);
         } catch (error) {
-            // Błąd jest już obsłużony przez mutation
             console.error('Błąd podczas usuwania trasy:', error);
         }
     }, [route, deleteRoute]);

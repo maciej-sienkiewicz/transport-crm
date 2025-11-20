@@ -482,7 +482,7 @@ const SuggestionMiniMap: React.FC<{
             <APIProvider apiKey={apiKey}>
                 <MapUI
                     defaultCenter={center}
-                    defaultZoom={12}
+                    defaultZoom={13}
                     mapId={`suggestion-map-${route.id}`}
                     style={{ width: '100%', height: '100%' }}
                     gestureHandling="greedy"

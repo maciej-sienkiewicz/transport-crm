@@ -14,7 +14,8 @@ import {
 import { MapView } from './components/MapView/MapView';
 import { Sidebar } from './components/Sidebar/Sidebar';
 import { Footer } from './components/Footer/Footer';
-import { RouteMapModalProps } from './utils/types';
+import { StopNumberEditor } from './components/StopNumberEditor/StopNumberEditor';
+import { RouteMapModalProps, RoutePoint } from './utils/types';
 import { useMapModal } from './hooks/useMapModal';
 
 export const RouteMapModal: React.FC<RouteMapModalProps> = ({
@@ -36,11 +37,16 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
         originalChildIndexMap,
         validation,
         stats,
+        editorState,
         movePointUp,
         movePointDown,
         handleRefreshMap,
         handleSave,
         handleCancel,
+        openEditor,
+        closeEditor,
+        updateNewOrder,
+        handleConfirmNewOrder,
     } = useMapModal(isOpen, points, onSaveOrder, onClose);
 
     const handleOverlayClick = useCallback(
@@ -50,6 +56,13 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
             }
         },
         [onClose]
+    );
+
+    const handleMarkerClick = useCallback(
+        (point: RoutePoint, screenPosition: { x: number; y: number }) => {
+            openEditor(point, screenPosition);
+        },
+        [openEditor]
     );
 
     const validPoints = displayedPoints.filter(
@@ -82,6 +95,7 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                                 displayedPoints={displayedPoints}
                                 originalChildIndexMap={originalChildIndexMap}
                                 hasValidPoints={hasValidPoints}
+                                onMarkerClick={handleMarkerClick}
                             />
                         </MapContainer>
 
@@ -104,6 +118,15 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                         onCancel={handleCancel}
                     />
                 </ModalContainer>
+
+                {/* Editor numeracji stopu */}
+                <StopNumberEditor
+                    editorState={editorState}
+                    maxOrder={editedPoints.length}
+                    onConfirm={handleConfirmNewOrder}
+                    onCancel={closeEditor}
+                    onUpdateValue={updateNewOrder}
+                />
             </Overlay>
         </APIProvider>
     );

@@ -4,7 +4,7 @@ import { RoutePoint } from '../utils/types.ts';
 
 export const useMapSetup = (isOpen: boolean, points: RoutePoint[]) => {
     const [center, setCenter] = useState({ lat: 52.2297, lng: 21.0122 });
-    const [zoom, setZoom] = useState(12);
+    const [zoom, setZoom] = useState(13);
     const [mapKey, setMapKey] = useState(0);
 
     useEffect(() => {
@@ -21,13 +21,13 @@ export const useMapSetup = (isOpen: boolean, points: RoutePoint[]) => {
             setCenter({ lat: avgLat, lng: avgLng });
 
             if (validPointsForMap.length === 2) {
-                setZoom(13);
+                setZoom(14);
             } else if (validPointsForMap.length <= 5) {
-                setZoom(12);
+                setZoom(14);
             } else if (validPointsForMap.length <= 10) {
-                setZoom(11);
+                setZoom(13);
             } else {
-                setZoom(10);
+                setZoom(12);
             }
         }
 
