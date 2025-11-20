@@ -13,7 +13,6 @@ import { UnassignedSchedulesList } from './UnassignedSchedulesList';
 import { RoutesTimeline } from './RoutesTimeline';
 import { RouteSuggestionsModal } from './RouteSuggestionsModal';
 import { ConfirmMapViewModal } from './ConfirmMapViewModal';
-import { RouteMapModal } from '../MultiRoutePlanner/RouteMapModal';
 import { UnassignedScheduleItem } from '../../types';
 import {
     DashboardContainer,
@@ -28,6 +27,7 @@ import {
     PanelTitle,
 } from './SmartAssignmentDashboard.styles';
 import { useUnassignedSchedules } from '@/features/routes/api/useUnassignedSchedules.ts';
+import {RouteMapModal} from "@/features/routes/components/RouteMapModal/RouteMapModal.tsx";
 
 const API_KEY = 'AIzaSyAr0qHze3moiMPHo-cwv171b8luH-anyXA';
 

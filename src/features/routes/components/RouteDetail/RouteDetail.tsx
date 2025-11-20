@@ -9,13 +9,13 @@ import { useRouteDetailLogic } from '../../hooks/useRouteDetailLogic';
 import { RouteMapTile } from './RouteMapTile';
 import { RouteDetailTabs } from './RouteDetailTabs';
 import { RouteTimeline } from './RouteTimeline';
-import { RouteMapModal } from '../MultiRoutePlanner/RouteMapModal';
 import { AddChildToRouteModal } from '../AddChildToRouteModal/AddChildToRouteModal';
 import { EditStopModal } from '../EditStopModal/EditStopModal';
 import { StopContextMenu } from '../StopContextMenu/StopContextMenu';
 import { RouteStop } from '../../types';
 import toast from 'react-hot-toast';
 import {useDeleteScheduleFromRoute} from "@/features/routes/hooks/useDeleteScheduleFromRoute.ts";
+import {RouteMapModal} from "@/features/routes/components/RouteMapModal/RouteMapModal.tsx";
 
 const RouteDetailContainer = styled.div`
     max-width: 1600px;

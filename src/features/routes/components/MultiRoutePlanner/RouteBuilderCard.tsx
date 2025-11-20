@@ -8,7 +8,6 @@ import { Select } from '@/shared/ui/Select';
 import { Button } from '@/shared/ui/Button';
 import { AvailableChild, ChildSchedule, LocalRouteStop } from '../../types';
 import { RouteBuilder } from './MultiRoutePlanner';
-import { RouteMapModal } from './RouteMapModal';
 import {
     RouteCard,
     RouteCardHeader,
@@ -41,6 +40,7 @@ import {
     WarningItem,
     NeedBadge,
 } from './RouteBuilderCard.styles';
+import {RouteMapModal} from "@/features/routes/components/RouteMapModal/RouteMapModal.tsx";
 
 interface Driver {
     id: string;
