@@ -49,7 +49,7 @@ export const CHECK_TYPE_CONFIG: Record<CheckType, CheckTypeConfig> = {
             if (status !== 'OK') {
                 return {
                     label: 'Przypisz kierowców',
-                    route: '/routes?filter=no-drivers'
+                    route: '/routes'
                 };
             }
             return null;
@@ -78,7 +78,7 @@ export const CHECK_TYPE_CONFIG: Record<CheckType, CheckTypeConfig> = {
             if (status !== 'OK') {
                 return {
                     label: 'Przypisz pojazdy',
-                    route: '/routes?filter=no-vehicles'
+                    route: '/routes'
                 };
             }
             return null;
@@ -99,7 +99,6 @@ export const CHECK_TYPE_CONFIG: Record<CheckType, CheckTypeConfig> = {
         },
         getCountDisplay: (check) => {
             if (check.count !== undefined && check.totalCount !== undefined) {
-                // Dla dzieci pokazujemy: przypisane/wszystkie
                 return `${check.count}/${check.totalCount}`;
             }
             return null;
@@ -137,7 +136,7 @@ export const CHECK_TYPE_CONFIG: Record<CheckType, CheckTypeConfig> = {
             if (status !== 'OK') {
                 return {
                     label: 'Przedłuż dokumenty',
-                    route: '/drivers?filter=expiring-docs'
+                    route: '/drivers'
                 };
             }
             return null;
@@ -166,7 +165,7 @@ export const CHECK_TYPE_CONFIG: Record<CheckType, CheckTypeConfig> = {
             if (status !== 'OK') {
                 return {
                     label: 'Zobacz szczegóły',
-                    route: '/vehicles?filter=expiring-tech'
+                    route: '/vehicles'
                 };
             }
             return null;

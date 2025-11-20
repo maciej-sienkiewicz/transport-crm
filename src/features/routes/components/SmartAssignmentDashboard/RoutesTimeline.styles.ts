@@ -162,14 +162,16 @@ export const RouteCardFooter = styled.div`
 `;
 
 export const EmptyRoutes = styled.div`
-    flex: 1;
+    /* Wypełnij całą dostępną wysokość i wycentruj na górze */
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start; /* Zmienione z center na flex-start */
     padding: ${({ theme }) => theme.spacing['2xl']};
+    padding-top: ${({ theme }) => theme.spacing['4xl']}; /* Dodany większy padding od góry */
     text-align: center;
     color: ${({ theme }) => theme.colors.slate[500]};
+    min-height: 400px; /* Minimalna wysokość aby mieć przestrzeń */
 
     svg {
         color: ${({ theme }) => theme.colors.warning[500]};
@@ -185,5 +187,7 @@ export const EmptyRoutes = styled.div`
 
     p {
         font-size: 0.9375rem;
+        max-width: 400px;
+        line-height: 1.6;
     }
 `;

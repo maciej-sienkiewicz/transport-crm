@@ -6,6 +6,8 @@ import { useRoutes } from '../../hooks/useRoutes';
 import { useRoute } from '../../hooks/useRoute';
 import { useAddScheduleToRoute } from '../../hooks/useAddScheduleToRoute';
 import { useReorderStops } from '../../hooks/useReorderStops';
+import { useQueryParam } from '@/shared/hooks/useQueryParam';
+import { getTomorrowDate, isValidDateString } from '@/shared/utils/urlParams';
 import { Input } from '@/shared/ui/Input';
 import { UnassignedSchedulesList } from './UnassignedSchedulesList';
 import { RoutesTimeline } from './RoutesTimeline';
@@ -43,12 +45,20 @@ export interface RoutePoint {
 }
 
 export const SmartAssignmentDashboard: React.FC = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const [selectedDate, setSelectedDate] = useState(tomorrow.toISOString().split('T')[0]);
+    // Użyj hooka do synchronizacji daty z URL
+    const [selectedDate, setSelectedDate] = useQueryParam('date', getTomorrowDate());
+
     const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
     const [assignedScheduleIds, setAssignedScheduleIds] = useState<Set<string>>(new Set());
     const [draggedScheduleId, setDraggedScheduleId] = useState<string | null>(null);
+
+    // Walidacja daty z URL
+    useEffect(() => {
+        if (!isValidDateString(selectedDate)) {
+            console.warn('⚠️ Nieprawidłowa data w URL, ustawiam domyślną');
+            setSelectedDate(getTomorrowDate());
+        }
+    }, [selectedDate, setSelectedDate]);
 
     // Stany dla modali
     const [suggestionsModalState, setSuggestionsModalState] = useState<{
@@ -93,7 +103,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
         page: 0,
         size: 100,
     });
-    const { data: routeDataForMap, isLoading: isLoadingRouteDetails } = useRoute(
+    const { data: routeDataForMap } = useRoute(
         routeIdToFetch || ''
     );
 
@@ -434,7 +444,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 </RightPanel>
             </DashboardBody>
 
-            {/* Modals */}
+            {/* Modal z sugestiami tras */}
             {suggestionsModalState.isOpen && suggestionsModalState.schedule && (
                 <RouteSuggestionsModal
                     isOpen={suggestionsModalState.isOpen}
@@ -451,6 +461,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 />
             )}
 
+            {/* Modal potwierdzenia z opcją podglądu mapy */}
             <ConfirmMapViewModal
                 isOpen={confirmModalState.isOpen}
                 childName={confirmModalState.childName}
@@ -459,6 +470,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 onClose={handleCloseConfirmModal}
             />
 
+            {/* Modal z mapą do edycji kolejności */}
             {mapModalState.isOpen && (
                 <RouteMapModal
                     isOpen={mapModalState.isOpen}

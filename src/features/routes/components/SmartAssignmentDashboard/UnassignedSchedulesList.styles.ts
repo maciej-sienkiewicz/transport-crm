@@ -179,14 +179,16 @@ export const SuggestionDetails = styled.div`
 `;
 
 export const EmptyState = styled.div`
-    flex: 1;
+    /* Wypełnij całą dostępną wysokość i wycentruj na górze */
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: ${({ theme }) => theme.spacing['2xl']};
+    justify-content: flex-start; /* Zmienione z center na flex-start */
+    padding: ${({ theme }) => theme.spacing.xl};
+    padding-top: ${({ theme }) => theme.spacing['4xl']}; /* Większy padding od góry */
     text-align: center;
     color: ${({ theme }) => theme.colors.slate[500]};
+    min-height: 400px;
 
     svg {
         color: ${({ theme }) => theme.colors.success[500]};
@@ -202,5 +204,7 @@ export const EmptyState = styled.div`
 
     p {
         font-size: 0.9375rem;
+        max-width: 400px;
+        line-height: 1.6;
     }
 `;

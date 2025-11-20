@@ -1,5 +1,4 @@
 // src/features/dashboard/components/ReadinessSection/DayColumn.tsx
-
 import React from 'react';
 import { DayColumnData } from '../../types';
 import { CheckItem } from './CheckItem';
@@ -23,7 +22,6 @@ interface DayColumnProps {
 export const DayColumn: React.FC<DayColumnProps> = ({ data }) => {
     return (
         <DayColumnContainer>
-            {/* Header */}
             <DayColumnHeader $label={data.label}>
                 <HeaderTop>
                     <HeaderIcon>📅</HeaderIcon>
@@ -32,7 +30,6 @@ export const DayColumn: React.FC<DayColumnProps> = ({ data }) => {
                 <HeaderDate>{data.date}</HeaderDate>
             </DayColumnHeader>
 
-            {/* Meta */}
             <DayColumnMeta>
                 <MetaItem>
                     <strong>{data.routesCount}</strong>
@@ -45,10 +42,13 @@ export const DayColumn: React.FC<DayColumnProps> = ({ data }) => {
                 </MetaItem>
             </DayColumnMeta>
 
-            {/* Checks */}
             <ChecksList>
                 {data.checks.map((check, index) => (
-                    <CheckItem key={`${check.type}-${index}`} check={check} />
+                    <CheckItem
+                        key={`${check.type}-${index}`}
+                        check={check}
+                        dateISO={data.dateISO} // Przekaż datę ISO
+                    />
                 ))}
             </ChecksList>
         </DayColumnContainer>

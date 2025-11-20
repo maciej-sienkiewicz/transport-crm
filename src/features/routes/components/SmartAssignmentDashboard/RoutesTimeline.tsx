@@ -1,6 +1,6 @@
 // src/features/routes/components/SmartAssignmentDashboard/RoutesTimeline.tsx
 import React, { useState } from 'react';
-import { Clock, MapPin, Users, Car, User, AlertCircle, AlertTriangle } from 'lucide-react';
+import { Clock, MapPin, Users, Car, User, AlertCircle, AlertTriangle, Eye } from 'lucide-react';
 import { RouteListItem, UnassignedScheduleItem } from '../../types';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Button } from '@/shared/ui/Button';
@@ -75,6 +75,12 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
         } catch (error) {
             console.error('❌ Błąd podczas przypisywania:', error);
         }
+    };
+
+    const handleViewRoute = (e: React.MouseEvent, routeId: string) => {
+        e.stopPropagation();
+        window.history.pushState({}, '', `/routes/${routeId}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
     const handleDragOver = (e: React.DragEvent, routeId: string) => {
@@ -192,25 +198,38 @@ export const RoutesTimeline: React.FC<RoutesTimelineProps> = ({
                             )}
                         </RouteCardBody>
 
-                        {selectedScheduleId && (
-                            <RouteCardFooter>
-                                {isFull ? (
-                                    <Button variant="danger" fullWidth disabled>
-                                        <AlertTriangle size={16} />
-                                        Trasa pełna
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        variant="secondary"
-                                        fullWidth
-                                        onClick={() => handleAssignClick(route)}
-                                    >
-                                        <MapPin size={16} />
-                                        Przypisz do trasy
-                                    </Button>
-                                )}
-                            </RouteCardFooter>
-                        )}
+                        <RouteCardFooter>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                fullWidth
+                                onClick={(e) => handleViewRoute(e, route.id)}
+                            >
+                                <Eye size={16} />
+                                Przejdź do widoku trasy
+                            </Button>
+
+                            {selectedScheduleId && (
+                                <>
+                                    {isFull ? (
+                                        <Button variant="danger" size="sm" fullWidth disabled>
+                                            <AlertTriangle size={16} />
+                                            Trasa pełna
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            fullWidth
+                                            onClick={() => handleAssignClick(route)}
+                                        >
+                                            <MapPin size={16} />
+                                            Przypisz do trasy
+                                        </Button>
+                                    )}
+                                </>
+                            )}
+                        </RouteCardFooter>
                     </RouteTimelineCard>
                 );
             })}

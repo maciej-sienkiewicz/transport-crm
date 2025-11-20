@@ -1,6 +1,6 @@
 // src/features/routes/components/SmartAssignmentDashboard/UnassignedSchedulesList.tsx
 import React from 'react';
-import { Clock, MapPin, Sparkles } from 'lucide-react';
+import { Clock, MapPin, Sparkles, User } from 'lucide-react';
 import { UnassignedScheduleItem } from '../../types';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Button } from '@/shared/ui/Button';
@@ -55,6 +55,12 @@ export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = (
             </EmptyState>
         );
     }
+
+    const handleViewChildProfile = (e: React.MouseEvent, childId: string) => {
+        e.stopPropagation();
+        window.history.pushState({}, '', `/children/${childId}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+    };
 
     return (
         <SchedulesListContainer>
@@ -116,8 +122,18 @@ export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = (
                             </AddressInfo>
                         </ScheduleBody>
 
-                        {hasAnyRoutes && (
-                            <ScheduleFooter>
+                        <ScheduleFooter>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                fullWidth
+                                onClick={(e) => handleViewChildProfile(e, schedule.childId)}
+                            >
+                                <User size={16} />
+                                Przejdź do profilu dziecka
+                            </Button>
+
+                            {hasAnyRoutes && (
                                 <Button
                                     variant="primary"
                                     size="sm"
@@ -130,8 +146,8 @@ export const UnassignedSchedulesList: React.FC<UnassignedSchedulesListProps> = (
                                     <Sparkles size={16} />
                                     Pokaż sugestie
                                 </Button>
-                            </ScheduleFooter>
-                        )}
+                            )}
+                        </ScheduleFooter>
                     </ScheduleCard>
                 );
             })}
