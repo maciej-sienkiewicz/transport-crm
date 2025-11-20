@@ -1,5 +1,5 @@
-// src/features/routes/components/SmartAssignmentDashboard/RouteMapModal.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+// src/features/routes/components/MultiRoutePlanner/RouteMapModal.tsx
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { X, MapPin, Navigation, AlertCircle, RefreshCw, Save, ChevronUp, ChevronDown, Sparkles } from 'lucide-react';
 import styled from 'styled-components';
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
@@ -379,17 +379,17 @@ const PointCardWithControls = styled.div<{
     position: relative;
     padding: ${({ theme }) => theme.spacing.md};
     background: ${({ $type, $noCoordinates, $isNew, theme }) => {
-    if ($noCoordinates) return theme.colors.slate[50];
-    if ($isNew) return 'linear-gradient(135deg, #faf5ff, #f3e8ff)';
-    return $type === 'pickup' ? theme.colors.primary[50] : theme.colors.success[50];
-}};
+        if ($noCoordinates) return theme.colors.slate[50];
+        if ($isNew) return 'linear-gradient(135deg, #faf5ff, #f3e8ff)';
+        return $type === 'pickup' ? theme.colors.primary[50] : theme.colors.success[50];
+    }};
     border: ${({ $isNew, $type, $noCoordinates, theme }) => {
-    if ($isNew) return '2px solid #a78bfa';
-    if ($noCoordinates) return `1px solid ${theme.colors.slate[200]}`;
-    return $type === 'pickup'
-        ? `1px solid ${theme.colors.primary[200]}`
-        : `1px solid ${theme.colors.success[200]}`;
-}};
+        if ($isNew) return '2px solid #a78bfa';
+        if ($noCoordinates) return `1px solid ${theme.colors.slate[200]}`;
+        return $type === 'pickup'
+                ? `1px solid ${theme.colors.primary[200]}`
+                : `1px solid ${theme.colors.success[200]}`;
+    }};
     border-radius: ${({ theme }) => theme.borderRadius.lg};
     display: flex;
     gap: ${({ theme }) => theme.spacing.sm};
@@ -400,7 +400,7 @@ const PointCardWithControls = styled.div<{
 
     &:hover {
         box-shadow: ${({ $isNew }) =>
-    $isNew ? '0 6px 16px rgba(139, 92, 246, 0.25)' : '0 2px 8px rgba(0, 0, 0, 0.08)'};
+                $isNew ? '0 6px 16px rgba(139, 92, 246, 0.25)' : '0 2px 8px rgba(0, 0, 0, 0.08)'};
         transform: translateY(-1px);
     }
 `;
@@ -498,8 +498,8 @@ const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
     border: none;
 
     ${({ $variant }) => {
-    if ($variant === 'primary') {
-        return `
+        if ($variant === 'primary') {
+            return `
                 background: #2563eb;
                 color: white;
                 &:hover:not(:disabled) {
@@ -508,8 +508,8 @@ const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
                     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
                 }
             `;
-    }
-    return `
+        }
+        return `
             background: white;
             color: #475569;
             border: 1px solid #cbd5e1;
@@ -517,7 +517,7 @@ const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
                 background: #f8fafc;
             }
         `;
-}}
+    }}
 
     &:disabled {
         opacity: 0.5;
@@ -525,24 +525,101 @@ const FooterButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
     }
 `;
 
-// Komponent renderujący trasę na mapie
-const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
+// Komponent renderujący trasę na mapie - MARKERY TWORZONE TYLKO RAZ!
+const RouteRenderer: React.FC<{
+    points: RoutePoint[];
+    originalChildIndexMap: Record<string, number>;
+}> = ({ points, originalChildIndexMap }) => {
     const map = useMap();
+    const markersRef = useRef<google.maps.Marker[]>([]);
+    const polylineRef = useRef<google.maps.Polyline | null>(null);
+    const hasInitializedRef = useRef(false);
 
+    // Inicjalizacja markerów - TYLKO RAZ!
     useEffect(() => {
-        if (!map || !window.google) return;
+        if (!map || !window.google || hasInitializedRef.current) return;
+
+        console.log('🎯 Tworzenie markerów (tylko raz!)');
+
+        // Stwórz markery dla WSZYSTKICH punktów (nawet bez współrzędnych - będą niewidoczne)
+        points.forEach((point) => {
+            const childIndex = originalChildIndexMap[point.childName] ?? 0;
+            const letter = String.fromCharCode(65 + childIndex);
+            const number = point.type === 'pickup' ? '1' : '2';
+            const label = `${letter}(${number})`;
+
+            const markerColor = point.isNew
+                ? '#8b5cf6'
+                : point.type === 'pickup'
+                    ? '#2563eb'
+                    : '#10b981';
+
+            const svgMarker = {
+                url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+                        <circle cx="20" cy="20" r="18" fill="${markerColor}" stroke="white" stroke-width="3"/>
+                        ${
+                    point.isNew
+                        ? '<circle cx="32" cy="8" r="6" fill="#f59e0b" stroke="white" stroke-width="2"/>'
+                        : ''
+                }
+                        <text x="20" y="20" font-family="Arial, sans-serif" font-size="12" font-weight="bold" 
+                              fill="white" text-anchor="middle" dominant-baseline="central">${label}</text>
+                    </svg>
+                `)}`,
+                scaledSize: new google.maps.Size(40, 40),
+                anchor: new google.maps.Point(20, 20),
+            };
+
+            const marker = new google.maps.Marker({
+                position: point.hasCoordinates && point.lat !== null && point.lng !== null
+                    ? { lat: point.lat, lng: point.lng }
+                    : { lat: 0, lng: 0 }, // Pozycja tymczasowa dla punktów bez współrzędnych
+                map: point.hasCoordinates && point.lat !== null && point.lng !== null ? map : null, // Pokaż tylko jeśli ma współrzędne
+                icon: svgMarker,
+                title: `${point.childName} - ${point.type === 'pickup' ? 'Odbiór' : 'Dowóz'}${
+                    point.isNew ? ' (NOWY)' : ''
+                }`,
+                zIndex: point.isNew ? 2000 : 1000,
+            });
+
+            // Przechowaj stopId jako właściwość niestandardową
+            (marker as any).stopId = point.stopId;
+
+            markersRef.current.push(marker);
+        });
+
+        hasInitializedRef.current = true;
+
+        console.log(`📍 Utworzono ${markersRef.current.length} markerów`);
+
+        // Cleanup - usuń markery tylko gdy komponent się odmontuje
+        return () => {
+            console.log('🧹 Czyszczenie markerów');
+            markersRef.current.forEach(marker => marker.setMap(null));
+            markersRef.current = [];
+            hasInitializedRef.current = false;
+        };
+    }, [map]); // Tylko zależność od map, NIE od points!
+
+    // Aktualizacja trasy - gdy zmieni się kolejność punktów
+    useEffect(() => {
+        if (!map || !window.google || !hasInitializedRef.current) return;
 
         const validPoints = points.filter(
             (p) => p.hasCoordinates && p.lat !== null && p.lng !== null
         );
 
-        if (validPoints.length < 2) return;
+        if (validPoints.length < 2) {
+            // Usuń starą trasę jeśli jest
+            if (polylineRef.current) {
+                polylineRef.current.setMap(null);
+                polylineRef.current = null;
+            }
+            return;
+        }
 
-        const uniqueChildren = [...new Set(points.map((p) => p.childName))];
-        const childIndexMap: Record<string, number> = {};
-        uniqueChildren.forEach((child, index) => {
-            childIndexMap[child] = index;
-        });
+        console.log('🛣️ Aktualizacja trasy (markery pozostają na miejscu)');
 
         const directionsService = new google.maps.DirectionsService();
 
@@ -550,9 +627,6 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
             location: new google.maps.LatLng(point.lat!, point.lng!),
             stopover: true,
         }));
-
-        const markers: google.maps.Marker[] = [];
-        let polyline: google.maps.Polyline | null = null;
 
         directionsService.route(
             {
@@ -567,61 +641,20 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
             },
             (result, status) => {
                 if (status === google.maps.DirectionsStatus.OK && result) {
+                    // Usuń starą linię trasy
+                    if (polylineRef.current) {
+                        polylineRef.current.setMap(null);
+                    }
+
+                    // Narysuj nową linię trasy
                     const path = result.routes[0].overview_path;
-                    polyline = new google.maps.Polyline({
+                    polylineRef.current = new google.maps.Polyline({
                         path: path,
                         geodesic: true,
                         strokeColor: '#2563eb',
                         strokeOpacity: 0.8,
                         strokeWeight: 5,
                         map: map,
-                    });
-
-                    points.forEach((point) => {
-                        if (!point.hasCoordinates || point.lat === null || point.lng === null) {
-                            return;
-                        }
-
-                        const childIndex = childIndexMap[point.childName] ?? 0;
-                        const letter = String.fromCharCode(65 + childIndex);
-                        const number = point.type === 'pickup' ? '1' : '2';
-                        const label = `${letter}(${number})`;
-
-                        // Kolor markera - różowy dla nowych punktów, standardowy dla istniejących
-                        const markerColor = point.isNew
-                            ? '#8b5cf6'
-                            : point.type === 'pickup'
-                                ? '#2563eb'
-                                : '#10b981';
-
-                        const svgMarker = {
-                            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-                                    <circle cx="20" cy="20" r="18" fill="${markerColor}" stroke="white" stroke-width="3"/>
-                                    ${
-                                point.isNew
-                                    ? '<circle cx="32" cy="8" r="6" fill="#f59e0b" stroke="white" stroke-width="2"/>'
-                                    : ''
-                            }
-                                    <text x="20" y="20" font-family="Arial, sans-serif" font-size="12" font-weight="bold" 
-                                          fill="white" text-anchor="middle" dominant-baseline="central">${label}</text>
-                                </svg>
-                            `)}`,
-                            scaledSize: new google.maps.Size(40, 40),
-                            anchor: new google.maps.Point(20, 20),
-                        };
-
-                        const marker = new google.maps.Marker({
-                            position: { lat: point.lat, lng: point.lng },
-                            map: map,
-                            icon: svgMarker,
-                            title: `${point.childName} - ${point.type === 'pickup' ? 'Odbiór' : 'Dowóz'}${
-                                point.isNew ? ' (NOWY)' : ''
-                            }`,
-                            zIndex: point.isNew ? 2000 : 1000,
-                        });
-
-                        markers.push(marker);
                     });
 
                     let totalDistance = 0;
@@ -636,18 +669,20 @@ const RouteRenderer: React.FC<{ points: RoutePoint[] }> = ({ points }) => {
                             totalDuration / 60
                         )} min`
                     );
-                    console.log(`📍 Utworzono ${markers.length} markerów (w tym ${points.filter(p => p.isNew).length} nowych)`);
                 } else {
                     console.error('❌ Błąd wyznaczania trasy:', status);
                 }
             }
         );
 
+        // Cleanup - usuń tylko linię trasy
         return () => {
-            if (polyline) polyline.setMap(null);
-            markers.forEach((marker) => marker.setMap(null));
+            if (polylineRef.current) {
+                polylineRef.current.setMap(null);
+                polylineRef.current = null;
+            }
         };
-    }, [map, points]);
+    }, [map, points]); // Zależy od points - aktualizuje trasę gdy zmieni się kolejność
 
     return null;
 };
@@ -663,49 +698,65 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                                                             }) => {
     const [center, setCenter] = useState({ lat: 52.2297, lng: 21.0122 });
     const [zoom, setZoom] = useState(12);
+    const [mapKey, setMapKey] = useState(0);
 
     const [editedPoints, setEditedPoints] = useState<RoutePoint[]>(points);
     const [displayedPoints, setDisplayedPoints] = useState<RoutePoint[]>(points);
     const [hasChanges, setHasChanges] = useState(false);
     const [needsRefresh, setNeedsRefresh] = useState(false);
 
+    // KLUCZOWE: Mapping dzieci TYLKO RAZ
+    const originalChildIndexMap = useMemo(() => {
+        return getChildIndexMap(points);
+    }, [isOpen]);
+
     const validation = validatePointsOrder(editedPoints);
 
+    // Inicjalizacja przy otwarciu modala
     useEffect(() => {
         if (isOpen) {
             console.log('🗺️ Modal otwarty z', points.length, 'punktami');
-            console.log('🆕 Nowych punktów:', points.filter(p => p.isNew).length);
 
             const hasNewPoints = points.some(p => p.isNew);
 
             setEditedPoints(points);
             setDisplayedPoints(points);
-            // ⭐ ZMIANA: Jeśli są nowe punkty, od razu ustaw hasChanges na true
             setHasChanges(hasNewPoints);
             setNeedsRefresh(false);
 
-            console.log('✅ hasChanges ustawione na:', hasNewPoints);
+            // Ustaw centrum i zoom
+            const validPointsForMap = points.filter(
+                (p) => p.hasCoordinates && p.lat !== null && p.lng !== null
+            );
+
+            if (validPointsForMap.length > 0) {
+                const avgLat = validPointsForMap.reduce((sum, p) => sum + p.lat!, 0) / validPointsForMap.length;
+                const avgLng = validPointsForMap.reduce((sum, p) => sum + p.lng!, 0) / validPointsForMap.length;
+
+                setCenter({ lat: avgLat, lng: avgLng });
+
+                if (validPointsForMap.length === 2) {
+                    setZoom(13);
+                } else if (validPointsForMap.length <= 5) {
+                    setZoom(12);
+                } else if (validPointsForMap.length <= 10) {
+                    setZoom(11);
+                } else {
+                    setZoom(10);
+                }
+            }
+
+            // Zwiększ klucz mapy TYLKO przy otwarciu
+            setMapKey(prev => prev + 1);
         }
     }, [isOpen, points]);
 
-    const childIndexMap = getChildIndexMap(displayedPoints);
     const validPoints = displayedPoints.filter(
         (p) => p.hasCoordinates && p.lat !== null && p.lng !== null
     );
     const missingCoordinatesCount = displayedPoints.length - validPoints.length;
     const newPointsCount = editedPoints.filter((p) => p.isNew).length;
     const existingPointsCount = editedPoints.length - newPointsCount;
-
-    useEffect(() => {
-        if (validPoints.length > 0) {
-            setCenter({ lat: validPoints[0].lat!, lng: validPoints[0].lng! });
-            if (validPoints.length > 5) {
-                setZoom(11);
-            } else {
-                setZoom(12);
-            }
-        }
-    }, [validPoints]);
 
     const handleOverlayClick = useCallback(
         (e: React.MouseEvent) => {
@@ -750,19 +801,13 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
 
     const handleRefreshMap = () => {
         if (validation.isValid) {
-            console.log('🔄 Odświeżanie mapy z nową kolejnością');
+            console.log('🔄 Odświeżanie trasy na mapie');
             setDisplayedPoints([...editedPoints]);
             setNeedsRefresh(false);
         }
     };
 
     const handleSave = () => {
-        console.log('💾 Zapisywanie:', {
-            hasChanges,
-            isValid: validation.isValid,
-            pointsCount: editedPoints.length,
-        });
-
         if (!validation.isValid) {
             console.log('❌ Walidacja nie przeszła');
             return;
@@ -811,14 +856,17 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                         <MapContainer>
                             {validPoints.length >= 2 ? (
                                 <Map
-                                    key={displayedPoints.map((p) => p.order).join('-')}
+                                    key={mapKey}
                                     defaultCenter={center}
                                     defaultZoom={zoom}
                                     gestureHandling="greedy"
                                     disableDefaultUI={false}
                                     mapId="route-map"
                                 >
-                                    <RouteRenderer points={displayedPoints} />
+                                    <RouteRenderer
+                                        points={displayedPoints}
+                                        originalChildIndexMap={originalChildIndexMap}
+                                    />
                                 </Map>
                             ) : (
                                 <div
@@ -920,7 +968,7 @@ export const RouteMapModal: React.FC<RouteMapModalProps> = ({
                                 ))}
 
                             {editedPoints.map((point, index) => {
-                                const childIndex = childIndexMap[point.childName] ?? 0;
+                                const childIndex = originalChildIndexMap[point.childName] ?? 0;
                                 const label = generatePointLabel(point.type, childIndex);
 
                                 return (
