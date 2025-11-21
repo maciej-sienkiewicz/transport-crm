@@ -36,7 +36,7 @@ export const executionStatusLabels: Record<ExecutionStatus, string> = {
     REFUSED: 'Odmowa',
 };
 
-export type ActiveTab = 'info' | 'children' | 'history';
+export type ActiveTab = 'info' | 'children' | 'history' | 'series';
 
 export interface ChildSummaryItem {
     childId: string;
@@ -58,6 +58,7 @@ export const useRouteDetailLogic = (id: string) => {
     const [activeStopId, setActiveStopId] = useState<string | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
     const stopRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const [isCreateSeriesModalOpen, setIsCreateSeriesModalOpen] = useState(false);
 
     const sortedStops = useMemo(() => {
         if (!route?.stops) return [];
@@ -167,6 +168,18 @@ export const useRouteDetailLogic = (id: string) => {
     const handleCloseMapModal = () => {
         setIsMapModalOpen(false);
     };
+
+    const handleCreateSeries = useCallback(() => {
+        if (route?.status !== 'PLANNED') {
+            toast.error('Serię można utworzyć tylko z trasy w statusie PLANNED');
+            return;
+        }
+        setIsCreateSeriesModalOpen(true);
+    }, [route]);
+
+    const handleCloseCreateSeriesModal = useCallback(() => {
+        setIsCreateSeriesModalOpen(false);
+    }, []);
 
     // POPRAWIONA FUNKCJA - używa stopId zamiast childName
     const handleSaveOrderFromMap = useCallback(async (newMapPoints: RoutePoint[]) => {
@@ -287,9 +300,12 @@ export const useRouteDetailLogic = (id: string) => {
         handleStopClick,
         handleMarkerClick,
         handleDeleteRoute,
+        isCreateSeriesModalOpen,
+        handleCreateSeries,
+        handleCloseCreateSeriesModal,
         setMap,
 
         // Stałe
-        API_KEY
+        API_KEY,
     };
 };

@@ -1,4 +1,4 @@
-// src/widgets/Sidebar/Sidebar.tsx - POPRAWIONA WERSJA
+// src/widgets/Sidebar/Sidebar.tsx - WERSJA Z SERIAMI TRAS
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -12,7 +12,8 @@ import {
     ChevronLeft,
     ChevronRight,
     Home,
-    AlertTriangle, // Zmieniam z AlertCircle na AlertTriangle dla lepszej widoczności
+    AlertTriangle,
+    Repeat, // ← DODANE dla serii tras
 } from 'lucide-react';
 import {
     SidebarContainer,
@@ -80,6 +81,12 @@ const navigationItems: NavItemConfig[] = [
         path: '/routes',
     },
     {
+        id: 'route-series', // ← NOWE
+        label: 'Serie tras',
+        icon: Repeat,
+        path: '/routes/series',
+    },
+    {
         id: 'unassigned',
         label: 'Nieprzypisane',
         icon: AlertTriangle,
@@ -120,14 +127,14 @@ export const Sidebar: React.FC = () => {
     }, [isCollapsed]);
 
     const handleNavigate = (path: string) => {
-        console.log('🔵 Sidebar: Navigating to:', path); // DEBUG
+        console.log('🔵 Sidebar: Navigating to:', path);
         window.history.pushState({}, '', path);
         window.dispatchEvent(new PopStateEvent('popstate'));
         setCurrentPath(path);
         setIsMobileOpen(false);
     };
 
-    // POPRAWIONA FUNKCJA isActive - bardziej precyzyjna
+    // ROZSZERZONA FUNKCJA isActive - obsługuje /routes/series
     const isActive = (path: string): boolean => {
         // Exact match dla specjalnych ścieżek
         if (path === '/routes/unassigned') {
@@ -138,11 +145,17 @@ export const Sidebar: React.FC = () => {
             return currentPath === '/routes/create';
         }
 
+        // ← NOWE: Obsługa serii tras
+        if (path === '/routes/series') {
+            return currentPath === '/routes/series' || currentPath.startsWith('/routes/series/');
+        }
+
         if (path === '/dashboard') {
             return currentPath === '/dashboard' || currentPath === '/';
         }
 
         // Dla /routes - tylko główna lista tras (bez podstron)
+        // WAŻNE: Musi być PRZED sprawdzaniem /routes/series
         if (path === '/routes') {
             return currentPath === '/routes';
         }
@@ -209,7 +222,7 @@ export const Sidebar: React.FC = () => {
                                     $isActive={active}
                                     $isCollapsed={isCollapsed}
                                     onClick={() => {
-                                        console.log('🟢 Clicked:', item.label, 'Path:', item.path); // DEBUG
+                                        console.log('🟢 Clicked:', item.label, 'Path:', item.path);
                                         handleNavigate(item.path);
                                     }}
                                     aria-label={item.label}

@@ -1,24 +1,26 @@
 // src/features/routes/components/RouteDetail/RouteDetailTabs.tsx
 
 import React, { RefObject } from 'react';
-import { Info, Users, History } from 'lucide-react';
+import { Info, Users, History, Repeat } from 'lucide-react';
 import { TabbedSection, TabsHeader, Tab, TabContent, EmptyState, EmptyIcon, EmptyText } from './RouteDetailTabs.styles';
 import { RouteDetail, RouteStop } from '../../types';
 import { ActiveTab, ChildSummaryItem } from '../../hooks/useRouteDetailLogic';
 import { RouteInfoTab } from './RouteInfoTab';
-// Importujemy nowy komponent
 import { RouteActivityHistory } from './RouteActivityHistory';
+import { RouteSeriesTab } from './RouteSeriesTab';
 
-// Komponent dla sekcji Dzieci (niezmieniony, używa placeholdera)
+// Komponent dla sekcji Dzieci (placeholder - do późniejszej implementacji)
 const ChildrenTabContent: React.FC<{
-    childrenSummary: ChildSummaryItem[],
-    uniqueChildrenCount: number,
-    handleChildClick: (id: string) => void
-}> = ({ childrenSummary, uniqueChildrenCount, handleChildClick }) => {
+    childrenSummary: ChildSummaryItem[];
+    uniqueChildrenCount: number;
+    handleChildClick: (id: string) => void;
+}> = ({ uniqueChildrenCount }) => {
     if (uniqueChildrenCount === 0) {
         return (
             <EmptyState>
-                <EmptyIcon><Users size={32} /></EmptyIcon>
+                <EmptyIcon>
+                    <Users size={32} />
+                </EmptyIcon>
                 <EmptyText>Brak przypisanych dzieci do tej trasy</EmptyText>
             </EmptyState>
         );
@@ -34,7 +36,7 @@ const ChildrenTabContent: React.FC<{
     );
 };
 
-// Interfejs RouteDetailTabsProps (przywrócony)
+// Interfejs RouteDetailTabsProps
 interface RouteDetailTabsProps {
     route: RouteDetail;
     activeTab: ActiveTab;
@@ -55,6 +57,7 @@ interface RouteDetailTabsProps {
     handleVehicleClick: () => void;
     handleDeleteRoute: () => void;
     isDeletingRoute: boolean;
+    handleCreateSeries: () => void;
 }
 
 export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
@@ -66,6 +69,7 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                                                                     handleChildClick,
                                                                     handleDriverClick,
                                                                     handleVehicleClick,
+                                                                    handleCreateSeries,
                                                                 }) => {
     return (
         <TabbedSection>
@@ -91,6 +95,13 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                     <History size={18} />
                     Historia
                 </Tab>
+                <Tab
+                    $active={activeTab === 'series'}
+                    onClick={() => setActiveTab('series')}
+                >
+                    <Repeat size={18} />
+                    Seria {route.seriesId && '🔁'}
+                </Tab>
             </TabsHeader>
 
             <TabContent>
@@ -110,9 +121,10 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                     />
                 )}
 
-                {/* Nowa implementacja zakładki Historia */}
-                {activeTab === 'history' && (
-                    <RouteActivityHistory routeId={route.id} />
+                {activeTab === 'history' && <RouteActivityHistory routeId={route.id} />}
+
+                {activeTab === 'series' && (
+                    <RouteSeriesTab route={route} onCreateSeries={handleCreateSeries} />
                 )}
             </TabContent>
         </TabbedSection>

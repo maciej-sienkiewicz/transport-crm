@@ -18,6 +18,8 @@ import { Sidebar } from '@/widgets/Sidebar';
 import {DashboardPage} from "@/pages/dashboard/DashboardPage.tsx";
 import {AlertsOverviewPage} from "@/pages/alerts/AlertsOverviewPage.tsx";
 import {UnassignedSchedulesPage} from "@/pages/routes/UnassignedSchedulesPage.tsx";
+import {RouteSeriesListPage} from "@/pages/routes/RouteSeriesListPage.tsx";
+import {RouteSeriesDetailPage} from "@/pages/routes/RouteSeriesDetailPage.tsx";
 
 const AppContainer = styled.div`
     min-height: 100vh;
@@ -67,13 +69,20 @@ type Route =
     | { type: 'routes-list' }
     | { type: 'route-detail'; id: string }
     | { type: 'route-create' }
-    | { type: 'unassigned-schedules' };
+    | { type: 'unassigned-schedules' }
+    | { type: 'route-series-list' }
+    | { type: 'route-series-detail'; id: string };
 
 function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
         const path = window.location.pathname;
 
-        if (path === '/routes/unassigned') {
+        if (path === '/routes/series') {
+            return { type: 'route-series-list' };
+        } else if (path.startsWith('/routes/series/')) {
+            const id = path.split('/')[3];
+            return { type: 'route-series-detail', id };
+        } else if (path === '/routes/unassigned') {
             return { type: 'unassigned-schedules' };
         } else if (path === '/dashboard' || path === '/') {
             return { type: 'dashboard' };
@@ -117,7 +126,12 @@ function App() {
         const handlePopState = () => {
             const path = window.location.pathname;
 
-            if (path === '/routes/unassigned') {
+            if (path === '/routes/series') {
+                setCurrentRoute({ type: 'route-series-list' });
+            } else if (path.startsWith('/routes/series/')) {
+                const id = path.split('/')[3];
+                setCurrentRoute({type: 'route-series-detail', id});
+            } else if (path === '/routes/unassigned') {
                 setCurrentRoute({ type: 'unassigned-schedules' });
             } else if (path === '/dashboard' || path === '/') {
                 setCurrentRoute({ type: 'dashboard' });
@@ -168,6 +182,10 @@ function App() {
 
     const renderPage = () => {
         switch (currentRoute.type) {
+            case 'route-series-list':
+                return <RouteSeriesListPage />;
+            case 'route-series-detail':
+                return <RouteSeriesDetailPage id={currentRoute.id} />;
             case 'unassigned-schedules':
                 return <UnassignedSchedulesPage />;
             case 'dashboard':

@@ -16,6 +16,7 @@ import { RouteStop } from '../../types';
 import toast from 'react-hot-toast';
 import {useDeleteScheduleFromRoute} from "@/features/routes/hooks/useDeleteScheduleFromRoute.ts";
 import {RouteMapModal} from "@/features/routes/components/RouteMapModal/RouteMapModal.tsx";
+import { CreateSeriesModal } from '../CreateSeriesModal';
 
 const RouteDetailContainer = styled.div`
     max-width: 1600px;
@@ -156,6 +157,9 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
         API_KEY,
         handleDeleteRoute,
         isDeletingRoute,
+        isCreateSeriesModalOpen,
+        handleCreateSeries,
+        handleCloseCreateSeriesModal,
     } = useRouteDetailLogic(id);
 
     const [isAddChildModalOpen, setIsAddChildModalOpen] = useState(false);
@@ -312,6 +316,7 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
                 handleVehicleClick={handleVehicleClick}
                 handleDeleteRoute={handleDeleteRoute}
                 isDeletingRoute={isDeletingRoute}
+                handleCreateSeries={handleCreateSeries}
             />
 
             {route.stops.length > 0 && (
@@ -350,6 +355,14 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
                     onEdit={handleEditStop}
                     onDelete={handleDeleteStop}
                     onClose={() => setContextMenu(null)}
+                />
+            )}
+
+            {route && (
+                <CreateSeriesModal
+                    isOpen={isCreateSeriesModalOpen}
+                    onClose={handleCloseCreateSeriesModal}
+                    route={route}
                 />
             )}
         </RouteDetailContainer>
