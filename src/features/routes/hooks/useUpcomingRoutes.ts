@@ -9,7 +9,7 @@ interface UseUpcomingRoutesParams {
 
 export const useUpcomingRoutes = (params: UseUpcomingRoutesParams) => {
     return useQuery({
-        queryKey: ['upcoming-routes', params.scheduleId, params.page, params.size],
+        queryKey: ['upcoming-routes', params],
         queryFn: () => routeHistoryApi.getUpcoming(params),
         enabled: Boolean(params.scheduleId),
         staleTime: 30_000,

@@ -9,7 +9,7 @@ interface UseRouteHistoryParams {
 
 export const useRouteHistory = (params: UseRouteHistoryParams) => {
     return useQuery({
-        queryKey: ['route-history', params.scheduleId, params.page, params.size],
+        queryKey: ['route-history', params],
         queryFn: () => routeHistoryApi.getHistory(params),
         enabled: Boolean(params.scheduleId),
         staleTime: 30_000,

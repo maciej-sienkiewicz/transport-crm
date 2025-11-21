@@ -53,6 +53,7 @@ import {
     Tab,
     TabContent,
 } from './ChildDetail.styles';
+import {RouteSearchManagement} from "@/features/routes/components/RouteSearchManagement";
 
 interface ChildDetailProps {
     id: string;
@@ -60,7 +61,7 @@ interface ChildDetailProps {
     onBack: () => void;
 }
 
-type TabType = 'schedules' | 'absences' | 'guardians' | 'history';
+type TabType = 'schedules' | 'absences' | 'guardians' | 'history' | 'routes';
 
 export const ChildDetail: React.FC<ChildDetailProps> = ({ id, onEdit, onBack }) => {
     const [activeTab, setActiveTab] = useState<TabType>('schedules');
@@ -312,6 +313,12 @@ export const ChildDetail: React.FC<ChildDetailProps> = ({ id, onEdit, onBack }) 
                                 👨‍👩‍👧 Opiekunowie
                             </Tab>
                             <Tab
+                                $active={activeTab === 'routes'}
+                                onClick={() => setActiveTab('routes')}
+                            >
+                                🚌 Wyszukiwanie tras
+                            </Tab>
+                            <Tab
                                 $active={activeTab === 'history'}
                                 onClick={() => setActiveTab('history')}
                             >
@@ -325,6 +332,7 @@ export const ChildDetail: React.FC<ChildDetailProps> = ({ id, onEdit, onBack }) 
                             {activeTab === 'guardians' && (
                                 <GuardiansList childId={id} guardians={child.guardians || []} />
                             )}
+                            {activeTab === 'routes' && <RouteSearchManagement childId={id} />}
                             {activeTab === 'history' && <ActivityHistory childId={id} />}
                         </TabContent>
                     </TabsContainer>
