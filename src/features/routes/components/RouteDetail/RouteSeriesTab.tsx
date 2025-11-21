@@ -241,7 +241,7 @@ export const RouteSeriesTab: React.FC<RouteSeriesTabProps> = ({ route, onCreateS
             size: 3,
             sort: 'date,asc',
         },
-        { enabled: shouldShowUpcoming }
+            { enabled: shouldShowUpcoming }
     );
 
     const navigateToSeries = (seriesId: string) => {

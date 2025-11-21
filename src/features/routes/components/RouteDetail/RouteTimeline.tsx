@@ -2,7 +2,6 @@
 
 import React, { RefObject } from 'react';
 import { Check, MapPin, Phone, Ban, CheckCircle, XCircle, AlertCircle, Clock, MoreVertical } from 'lucide-react';
-import styled from 'styled-components';
 import { RouteStop } from '../../types';
 import { executionStatusLabels } from '../../hooks/useRouteDetailLogic';
 import {
@@ -25,31 +24,50 @@ import {
     ExecutionDetails,
 } from './RouteTimeline.styles';
 
+// Import StopActions jeśli został dodany do styles, lub zdefiniuj tutaj
+import styled from 'styled-components';
+
 const StopActions = styled.button`
-  position: absolute;
-  top: ${({ theme }) => theme.spacing.sm};
-  right: ${({ theme }) => theme.spacing.sm};
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  border: none;
-  background: transparent;
-  color: ${({ theme }) => theme.colors.slate[400]};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
-  z-index: 10;
+    position: absolute;
+    top: ${({ theme }) => theme.spacing.xs};
+    right: ${({ theme }) => theme.spacing.xs};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: ${({ theme }) => theme.borderRadius.md};
+    border: none;
+    background: transparent;
+    color: ${({ theme }) => theme.colors.slate[400]};
+    cursor: pointer;
+    transition: all ${({ theme }) => theme.transitions.fast};
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
 
-  &:hover {
-    background: ${({ theme }) => theme.colors.slate[100]};
-    color: ${({ theme }) => theme.colors.slate[600]};
-  }
+    &:hover {
+        background: ${({ theme }) => theme.colors.slate[100]};
+        color: ${({ theme }) => theme.colors.slate[600]};
+    }
 
-  &:active {
-    background: ${({ theme }) => theme.colors.slate[200]};
-  }
+    &:active {
+        background: ${({ theme }) => theme.colors.slate[200]};
+        transform: scale(0.95);
+    }
+
+    /* Na mobile zawsze widoczny */
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        opacity: 1;
+        pointer-events: auto;
+    }
+`;
+
+const TimelineStopWrapper = styled.div`
+    &:hover ${StopActions} {
+        opacity: 1;
+        pointer-events: auto;
+    }
 `;
 
 interface RouteTimelineProps {
@@ -83,131 +101,132 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                 const canEdit = canEditStops && !isCancelled && !isExecuted;
 
                 return (
-                    <TimelineStop
-                        key={stop.id}
-                        ref={(el) => {
-                            if (stopRefs && stopRefs.current) {
-                                stopRefs.current[stop.id] = el;
-                            }
-                        }}
-                        $isCancelled={isCancelled}
-                        $isExecuted={isExecuted}
-                        $isCurrent={isCurrent}
-                        $isActive={activeStopId === stop.id}
-                        onMouseEnter={() => handleStopHover(stop)}
-                        onMouseLeave={() => handleStopHover(stop)}
-                        onClick={() => handleStopClick(stop)}
-                    >
-                        <TimelineTrack />
-                        <TimelineDot
+                    <TimelineStopWrapper key={stop.id}>
+                        <TimelineStop
+                            ref={(el) => {
+                                if (stopRefs && stopRefs.current) {
+                                    stopRefs.current[stop.id] = el;
+                                }
+                            }}
                             $isCancelled={isCancelled}
                             $isExecuted={isExecuted}
                             $isCurrent={isCurrent}
+                            $isActive={activeStopId === stop.id}
+                            onMouseEnter={() => handleStopHover(stop)}
+                            onMouseLeave={() => handleStopHover(stop)}
+                            onClick={() => handleStopClick(stop)}
                         >
-                            {isExecuted && <Check size={10} color="white" />}
-                        </TimelineDot>
+                            <TimelineTrack />
+                            <TimelineDot
+                                $isCancelled={isCancelled}
+                                $isExecuted={isExecuted}
+                                $isCurrent={isCurrent}
+                            >
+                                {isExecuted && <Check size={10} color="white" />}
+                            </TimelineDot>
 
-                        <TimelineContent $isCancelled={isCancelled}>
-                            {canEdit && handleStopContextMenu && (
-                                <StopActions
+                            <TimelineContent $isCancelled={isCancelled}>
+                                {canEdit && handleStopContextMenu && (
+                                    <StopActions
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleStopContextMenu(e, stop);
+                                        }}
+                                        title="Więcej opcji"
+                                    >
+                                        <MoreVertical size={16} />
+                                    </StopActions>
+                                )}
+
+                                <StopTypeBadge $type={stop.stopType}>
+                                    {stop.stopType === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}
+                                </StopTypeBadge>
+                                <ChildName
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleStopContextMenu(e, stop);
+                                        handleChildClick(stop.childId);
                                     }}
-                                    title="Więcej opcji"
                                 >
-                                    <MoreVertical size={16} />
-                                </StopActions>
-                            )}
-
-                            <StopTypeBadge $type={stop.stopType}>
-                                {stop.stopType === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}
-                            </StopTypeBadge>
-                            <ChildName
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleChildClick(stop.childId);
-                                }}
-                            >
-                                {stop.childFirstName} {stop.childLastName}
-                            </ChildName>
-                            <AddressRow>
-                                <MapPin
-                                    size={14}
-                                    style={{
-                                        flexShrink: 0,
-                                        marginTop: '2px',
-                                    }}
-                                />
-                                <div>
-                                    {stop.address.label && (
-                                        <AddressLabel>{stop.address.label} - </AddressLabel>
-                                    )}
-                                    {stop.address.street} {stop.address.houseNumber}
-                                    {stop.address.apartmentNumber &&
-                                        `/${stop.address.apartmentNumber}`}
-                                    , {stop.address.postalCode} {stop.address.city}
-                                </div>
-                            </AddressRow>
-                            <TimeRow>
-                                <TimeItem>
-                                    <Clock size={14} />
-                                    <strong>Planowany:</strong> {stop.estimatedTime}
-                                </TimeItem>
-                                <TimeItem>
-                                    <Phone size={14} />
-                                    <strong>Opiekun:</strong> {stop.guardian.phone}
-                                </TimeItem>
-                            </TimeRow>
-                            {stop.isCancelled && (
-                                <CancellationSection>
-                                    <CancellationHeader>
-                                        <Ban size={16} />
-                                        Stop anulowany
-                                    </CancellationHeader>
-                                    <CancellationDetails>
-                                        {stop.cancelledAt && (
+                                    {stop.childFirstName} {stop.childLastName}
+                                </ChildName>
+                                <AddressRow>
+                                    <MapPin
+                                        size={14}
+                                        style={{
+                                            flexShrink: 0,
+                                            marginTop: '2px',
+                                        }}
+                                    />
+                                    <div>
+                                        {stop.address.label && (
+                                            <AddressLabel>{stop.address.label} - </AddressLabel>
+                                        )}
+                                        {stop.address.street} {stop.address.houseNumber}
+                                        {stop.address.apartmentNumber &&
+                                            `/${stop.address.apartmentNumber}`}
+                                        , {stop.address.postalCode} {stop.address.city}
+                                    </div>
+                                </AddressRow>
+                                <TimeRow>
+                                    <TimeItem>
+                                        <Clock size={14} />
+                                        <strong>Planowany:</strong> {stop.estimatedTime}
+                                    </TimeItem>
+                                    <TimeItem>
+                                        <Phone size={14} />
+                                        <strong>Opiekun:</strong> {stop.guardian.phone}
+                                    </TimeItem>
+                                </TimeRow>
+                                {stop.isCancelled && (
+                                    <CancellationSection>
+                                        <CancellationHeader>
+                                            <Ban size={16} />
+                                            Stop anulowany
+                                        </CancellationHeader>
+                                        <CancellationDetails>
+                                            {stop.cancelledAt && (
+                                                <div>
+                                                    <strong>Data:</strong>{' '}
+                                                    {new Date(stop.cancelledAt).toLocaleString('pl-PL')}
+                                                </div>
+                                            )}
+                                            {stop.cancellationReason && (
+                                                <div
+                                                    style={{
+                                                        marginTop: '4px',
+                                                    }}
+                                                >
+                                                    <strong>Powód:</strong> {stop.cancellationReason}
+                                                </div>
+                                            )}
+                                        </CancellationDetails>
+                                    </CancellationSection>
+                                )}
+                                {!stop.isCancelled && stop.executionStatus && (
+                                    <ExecutionSection $status={stop.executionStatus}>
+                                        <ExecutionHeader $status={stop.executionStatus}>
+                                            {stop.executionStatus === 'COMPLETED' && (
+                                                <CheckCircle size={16} />
+                                            )}
+                                            {stop.executionStatus === 'NO_SHOW' && (
+                                                <AlertCircle size={16} />
+                                            )}
+                                            {stop.executionStatus === 'REFUSED' && (
+                                                <XCircle size={16} />
+                                            )}
+                                            Wykonanie stopu
+                                        </ExecutionHeader>
+                                        <ExecutionDetails $status={stop.executionStatus}>
                                             <div>
-                                                <strong>Data:</strong>{' '}
-                                                {new Date(stop.cancelledAt).toLocaleString('pl-PL')}
+                                                <strong>Status:</strong>{' '}
+                                                {executionStatusLabels[stop.executionStatus]}
                                             </div>
-                                        )}
-                                        {stop.cancellationReason && (
-                                            <div
-                                                style={{
-                                                    marginTop: '4px',
-                                                }}
-                                            >
-                                                <strong>Powód:</strong> {stop.cancellationReason}
-                                            </div>
-                                        )}
-                                    </CancellationDetails>
-                                </CancellationSection>
-                            )}
-                            {!stop.isCancelled && stop.executionStatus && (
-                                <ExecutionSection $status={stop.executionStatus}>
-                                    <ExecutionHeader $status={stop.executionStatus}>
-                                        {stop.executionStatus === 'COMPLETED' && (
-                                            <CheckCircle size={16} />
-                                        )}
-                                        {stop.executionStatus === 'NO_SHOW' && (
-                                            <AlertCircle size={16} />
-                                        )}
-                                        {stop.executionStatus === 'REFUSED' && (
-                                            <XCircle size={16} />
-                                        )}
-                                        Wykonanie stopu
-                                    </ExecutionHeader>
-                                    <ExecutionDetails $status={stop.executionStatus}>
-                                        <div>
-                                            <strong>Status:</strong>{' '}
-                                            {executionStatusLabels[stop.executionStatus]}
-                                        </div>
-                                    </ExecutionDetails>
-                                </ExecutionSection>
-                            )}
-                        </TimelineContent>
-                    </TimelineStop>
+                                        </ExecutionDetails>
+                                    </ExecutionSection>
+                                )}
+                            </TimelineContent>
+                        </TimelineStop>
+                    </TimelineStopWrapper>
                 );
             })}
         </RouteTimelineContainer>

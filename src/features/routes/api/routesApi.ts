@@ -21,6 +21,20 @@ interface ReorderStopsResponse {
     updatedStopsCount: number;
 }
 
+interface ReassignDriverRequest {
+    newDriverId: string;
+    reason?: string;
+}
+
+interface ReassignDriverResponse {
+    routeId: string;
+    previousDriverId: string;
+    newDriverId: string;
+    status: RouteStatus;
+    assignmentId: string;
+    message: string;
+}
+
 export const routesApi = {
     getAll: async (params: GetRoutesParams): Promise<PageableResponse<RouteListItem>> => {
         const response = await apiClient.get<PageableResponse<RouteListItem>>('/routes', {
@@ -79,6 +93,17 @@ export const routesApi = {
         const response = await apiClient.get<AvailableChild[]>('/routes/available-children', {
             params: { date },
         });
+        return response.data;
+    },
+
+    reassignDriver: async (
+        routeId: string,
+        data: ReassignDriverRequest
+    ): Promise<ReassignDriverResponse> => {
+        const response = await apiClient.post<ReassignDriverResponse>(
+            `/routes/${routeId}/reassign-driver`,
+            data
+        );
         return response.data;
     },
 };

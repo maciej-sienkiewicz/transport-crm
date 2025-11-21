@@ -58,6 +58,7 @@ interface RouteDetailTabsProps {
     handleDeleteRoute: () => void;
     isDeletingRoute: boolean;
     handleCreateSeries: () => void;
+    handleChangeDriver: () => void;
 }
 
 export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
@@ -70,6 +71,7 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                                                                     handleDriverClick,
                                                                     handleVehicleClick,
                                                                     handleCreateSeries,
+                                                                    handleChangeDriver,
                                                                 }) => {
     return (
         <TabbedSection>
@@ -110,6 +112,7 @@ export const RouteDetailTabs: React.FC<RouteDetailTabsProps> = ({
                         route={route}
                         onDriverClick={handleDriverClick}
                         onVehicleClick={handleVehicleClick}
+                        onChangeDriver={handleChangeDriver}
                     />
                 )}
 

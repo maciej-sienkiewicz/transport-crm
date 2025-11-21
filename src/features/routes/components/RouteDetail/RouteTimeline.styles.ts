@@ -1,7 +1,7 @@
 // /routes/components/RouteDetail/RouteDetailTabs/RouteTimeline/RouteTimeline.styles.ts
 
 import styled, { css, keyframes } from 'styled-components';
-import { RouteStop, StopType, ExecutionStatus } from '../../../../types';
+import {ExecutionStatus, StopType} from "@/features/routes/types.ts";
 
 export const RouteTimelineContainer = styled.div`
     display: flex;

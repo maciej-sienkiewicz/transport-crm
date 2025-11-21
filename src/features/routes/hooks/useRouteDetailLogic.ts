@@ -5,13 +5,14 @@ import {
     useMemo,
     useState,
     useRef,
+    useEffect,
 } from 'react';
 import toast from 'react-hot-toast';
 import { ExecutionStatus, RouteStatus, RouteStop } from '@/features/routes/types';
 import { useRoute } from '@/features/routes/hooks/useRoute';
 import { useDeleteRoute } from '@/features/routes/hooks/useDeleteRoute';
 import { useReorderStops } from '@/features/routes/hooks/useReorderStops';
-import { RoutePoint } from '@/features/routes/components/RouteMapModal/utils/types'; // DODANE
+import { RoutePoint } from '@/features/routes/components/RouteMapModal/utils/types';
 
 export const statusLabels: Record<RouteStatus, string> = {
     PLANNED: 'Zaplanowana',
@@ -52,13 +53,29 @@ export const useRouteDetailLogic = (id: string) => {
     const { data: route, isLoading, refetch } = useRoute(id);
     const deleteRoute = useDeleteRoute();
     const reorderStops = useReorderStops();
-    const [activeTab, setActiveTab] = useState<ActiveTab>('info');
+
+    // Domyślna zakładka: jeśli trasa należy do serii, pokaż zakładkę "series"
+    const getInitialTab = (): ActiveTab => {
+        if (route?.seriesId) {
+            return 'series';
+        }
+        return 'info';
+    };
+
+    const [activeTab, setActiveTab] = useState<ActiveTab>(getInitialTab());
     const [map, setMap] = useState<google.maps.Map | null>(null);
     const [hoveredStopId, setHoveredStopId] = useState<string | null>(null);
     const [activeStopId, setActiveStopId] = useState<string | null>(null);
     const [isMapModalOpen, setIsMapModalOpen] = useState(false);
     const stopRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const [isCreateSeriesModalOpen, setIsCreateSeriesModalOpen] = useState(false);
+
+    // Ustaw zakładkę "series" jako domyślną, gdy trasa się załaduje i należy do serii
+    useEffect(() => {
+        if (route?.seriesId && activeTab === 'info') {
+            setActiveTab('series');
+        }
+    }, [route?.seriesId]);
 
     const sortedStops = useMemo(() => {
         if (!route?.stops) return [];
@@ -101,7 +118,6 @@ export const useRouteDetailLogic = (id: string) => {
         return Array.from(childrenMap.values());
     }, [route?.stops]);
 
-    // POPRAWIONA FUNKCJA - teraz zwraca RoutePoint[] zamiast MapPoint[]
     const getMapPoints = useCallback((): RoutePoint[] => {
         if (!route?.stops) return [];
 
@@ -112,20 +128,12 @@ export const useRouteDetailLogic = (id: string) => {
                 lng: stop.address.longitude ?? null,
                 type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
                 childName: `${stop.childFirstName} ${stop.childLastName}`,
-                order: stop.stopOrder, // UŻYJ stopOrder zamiast index + 1
+                order: stop.stopOrder,
                 hasCoordinates: stop.address.latitude != null && stop.address.longitude != null,
-                stopId: stop.id, // ← KLUCZOWE: DODANE stopId!
-                scheduleId: stop.scheduleId, // ← KLUCZOWE: DODANE scheduleId!
+                stopId: stop.id,
+                scheduleId: stop.scheduleId,
                 isNew: false,
             };
-
-            console.log(`📍 Tworzę RoutePoint ${index}:`, {
-                stopId: point.stopId,
-                scheduleId: point.scheduleId,
-                childName: point.childName,
-                order: point.order,
-                type: point.type,
-            });
 
             return point;
         });
@@ -139,7 +147,6 @@ export const useRouteDetailLogic = (id: string) => {
             : { lat: 52.4064, lng: 16.9252 };
     }, [getMapPoints]);
 
-    // --- Handlery ---
     const handleDriverClick = () => {
         if (route?.driver.id) {
             window.location.href = `/drivers/${route.driver.id}`;
@@ -161,7 +168,6 @@ export const useRouteDetailLogic = (id: string) => {
             toast.error('Brak stopów do edycji');
             return;
         }
-        console.log('🗺️ Otwieranie modala mapy z punktami:', getMapPoints());
         setIsMapModalOpen(true);
     };
 
@@ -181,17 +187,12 @@ export const useRouteDetailLogic = (id: string) => {
         setIsCreateSeriesModalOpen(false);
     }, []);
 
-    // POPRAWIONA FUNKCJA - używa stopId zamiast childName
     const handleSaveOrderFromMap = useCallback(async (newMapPoints: RoutePoint[]) => {
         if (!route) return;
 
         try {
-            console.log('📤 Zapisywanie nowej kolejności z mapy:', newMapPoints);
-
-            // Mapujemy punkty mapy na stopOrders używając stopId
             const stopOrders = newMapPoints.map((point, index) => {
                 if (!point.stopId) {
-                    console.error('❌ Punkt nie ma stopId:', point);
                     throw new Error(`Punkt ${point.childName} nie ma stopId`);
                 }
 
@@ -201,8 +202,6 @@ export const useRouteDetailLogic = (id: string) => {
                 };
             });
 
-            console.log('📤 Wysyłanie stopOrders:', stopOrders);
-
             await reorderStops.mutateAsync({
                 routeId: route.id,
                 stopOrders,
@@ -210,8 +209,6 @@ export const useRouteDetailLogic = (id: string) => {
 
             toast.success('Kolejność stopów została zaktualizowana');
             handleCloseMapModal();
-
-            // Odśwież dane trasy
             await refetch();
         } catch (error) {
             console.error('❌ Błąd podczas zapisywania kolejności:', error);
@@ -268,7 +265,6 @@ export const useRouteDetailLogic = (id: string) => {
     }, [route, deleteRoute]);
 
     return {
-        // Dane
         route,
         isLoading,
         uniqueChildrenCount,
@@ -276,19 +272,13 @@ export const useRouteDetailLogic = (id: string) => {
         displayStops,
         defaultMapCenter,
         mapPoints: getMapPoints(),
-
-        // Stany
         activeTab,
         isMapModalOpen,
         hoveredStopId,
         activeStopId,
         isDeletingRoute: deleteRoute.isPending,
         isSavingOrder: reorderStops.isPending,
-
-        // Refy
         stopRefs,
-
-        // Handlery
         setActiveTab,
         handleDriverClick,
         handleVehicleClick,
@@ -304,8 +294,6 @@ export const useRouteDetailLogic = (id: string) => {
         handleCreateSeries,
         handleCloseCreateSeriesModal,
         setMap,
-
-        // Stałe
         API_KEY,
     };
 };

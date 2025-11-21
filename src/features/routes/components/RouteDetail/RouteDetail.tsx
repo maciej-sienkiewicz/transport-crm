@@ -12,10 +12,11 @@ import { RouteTimeline } from './RouteTimeline';
 import { AddChildToRouteModal } from '../AddChildToRouteModal/AddChildToRouteModal';
 import { EditStopModal } from '../EditStopModal/EditStopModal';
 import { StopContextMenu } from '../StopContextMenu/StopContextMenu';
+import { ReassignDriverModal } from './ReassignDriverModal';
 import { RouteStop } from '../../types';
 import toast from 'react-hot-toast';
-import {useDeleteScheduleFromRoute} from "@/features/routes/hooks/useDeleteScheduleFromRoute.ts";
-import {RouteMapModal} from "@/features/routes/components/RouteMapModal/RouteMapModal.tsx";
+import { useDeleteScheduleFromRoute } from '@/features/routes/hooks/useDeleteScheduleFromRoute.ts';
+import { RouteMapModal } from '@/features/routes/components/RouteMapModal/RouteMapModal.tsx';
 import { CreateSeriesModal } from '../CreateSeriesModal';
 
 const RouteDetailContainer = styled.div`
@@ -64,6 +65,12 @@ const TimelineHeader = styled.div`
     }
 `;
 
+const TimelineTitleContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.xs};
+`;
+
 const TimelineTitle = styled.h2`
     font-size: 1.25rem;
     font-weight: 700;
@@ -72,6 +79,12 @@ const TimelineTitle = styled.h2`
     @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
         font-size: 1.125rem;
     }
+`;
+
+const RouteDate = styled.span`
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: ${({ theme }) => theme.colors.slate[600]};
 `;
 
 const HeaderActions = styled.div`
@@ -164,6 +177,7 @@ export const RouteDetail: React.FC<RouteDetailProps> = ({ id }) => {
 
     const [isAddChildModalOpen, setIsAddChildModalOpen] = useState(false);
     const [isEditStopModalOpen, setIsEditStopModalOpen] = useState(false);
+    const [isReassignDriverModalOpen, setIsReassignDriverModalOpen] = useState(false);
     const [contextMenu, setContextMenu] = useState<{
         x: number;
         y: number;
@@ -231,12 +245,23 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
 
     const showActionButtons = route.status === 'PLANNED';
 
+    const formattedDate = new Date(route.date).toLocaleDateString('pl-PL', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    });
+
     return (
         <RouteDetailContainer>
             <MainLayoutGrid>
                 <TimelineSection>
                     <TimelineHeader>
-                        <TimelineTitle>{route.routeName}</TimelineTitle>
+                        <TimelineTitleContainer>
+                            <TimelineTitle>
+                                {route.routeName}
+                            </TimelineTitle>
+                            <RouteDate>📅 {formattedDate}</RouteDate>
+                        </TimelineTitleContainer>
 
                         {showActionButtons && (
                             <HeaderActions>
@@ -317,6 +342,7 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
                 handleDeleteRoute={handleDeleteRoute}
                 isDeletingRoute={isDeletingRoute}
                 handleCreateSeries={handleCreateSeries}
+                handleChangeDriver={() => setIsReassignDriverModalOpen(true)}
             />
 
             {route.stops.length > 0 && (
@@ -359,11 +385,21 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
             )}
 
             {route && (
-                <CreateSeriesModal
-                    isOpen={isCreateSeriesModalOpen}
-                    onClose={handleCloseCreateSeriesModal}
-                    route={route}
-                />
+                <>
+                    <CreateSeriesModal
+                        isOpen={isCreateSeriesModalOpen}
+                        onClose={handleCloseCreateSeriesModal}
+                        route={route}
+                    />
+
+                    <ReassignDriverModal
+                        isOpen={isReassignDriverModalOpen}
+                        onClose={() => setIsReassignDriverModalOpen(false)}
+                        routeId={route.id}
+                        routeDate={route.date}
+                        currentDriver={route.driver}
+                    />
+                </>
             )}
         </RouteDetailContainer>
     );

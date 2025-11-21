@@ -19,7 +19,7 @@ import {
     Document,
     DocumentType,
     UploadUrlResponse,
-    DocumentUploadResult,
+    DocumentUploadResult, AvailableDriverListItem,
 } from '../types';
 
 interface GetDriversParams extends PaginationParams {
@@ -357,5 +357,15 @@ export const driversApi = {
                 checkedBy: 'A.Kowalska',
             },
         ]);
+    },
+
+    getAvailableDrivers: async (date: string): Promise<AvailableDriverListItem[]> => {
+        const response = await apiClient.get<AvailableDriverListItem[]>(
+            '/drivers/available',
+            {
+                params: { date },
+            }
+        );
+        return response.data;
     },
 };

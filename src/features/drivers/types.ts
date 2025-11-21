@@ -239,3 +239,19 @@ export interface DocumentUploadResult {
     contentType: string;
     s3Key: string;
 }
+
+export interface AvailableDriverListItem {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    drivingLicense: {
+        categories: string[];
+    };
+    currentAssignments: {
+        routeId: string;
+        routeName: string;
+        estimatedStartTime: string;
+        estimatedEndTime: string;
+    }[];
+}
