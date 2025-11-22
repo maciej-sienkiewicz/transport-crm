@@ -325,9 +325,6 @@ export const MultiRoutePlanner: React.FC = () => {
             if (!route.vehicleId) {
                 errors.push(`Trasa ${index + 1}: Nie wybrano pojazdu`);
             }
-            if (!route.driverId) {
-                errors.push(`Trasa ${index + 1}: Nie wybrano kierowcy`);
-            }
             if (route.stops.length === 0) {
                 errors.push(`Trasa ${index + 1}: Brak przypisanych stopów`);
             }

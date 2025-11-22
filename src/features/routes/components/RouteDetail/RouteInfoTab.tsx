@@ -1,12 +1,13 @@
 // src/features/routes/components/RouteDetail/RouteInfoTab.tsx
 
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
-import { User, Truck, Clock, MapPin, Users, RefreshCw } from 'lucide-react';
+import { User, Truck, Clock, MapPin, Users, RefreshCw, Activity } from 'lucide-react';
 import { RouteDetail } from '../../types';
 import { statusVariants, statusLabels } from '../../hooks/useRouteDetailLogic';
+import { UpdateRouteStatusModal } from '../UpdateRouteStatusModal';
 import toast from 'react-hot-toast';
 
 const InfoGrid = styled.div`
@@ -71,10 +72,7 @@ const ChangeButton = styled(Button)`
     flex-shrink: 0;
 `;
 
-const StatusRow = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+const StatusCard = styled.div`
     padding: ${({ theme }) => theme.spacing.lg};
     background: ${({ theme }) => theme.gradients.cardHeader};
     border-radius: ${({ theme }) => theme.borderRadius.xl};
@@ -82,10 +80,40 @@ const StatusRow = styled.div`
     margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
-const RouteTitle = styled.h3`
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: ${({ theme }) => theme.colors.slate[900]};
+const StatusHeader = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const StatusTitle = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[600]};
+    text-transform: uppercase;
+    letter-spacing: ${({ theme }) => theme.typography.letterSpacing.wide};
+`;
+
+const StatusContent = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const StatusInfo = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const StatusBadgeWrapper = styled.div`
+    display: flex;
+    align-items: center;
 `;
 
 interface RouteInfoTabProps {
@@ -101,8 +129,10 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
                                                               onVehicleClick,
                                                               onChangeDriver,
                                                           }) => {
+    const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const estimatedChildrenCount = Math.ceil(route.stops.length / 2);
     const canReassign = route.status === 'PLANNED';
+    const canChangeStatus = ['PLANNED', 'IN_PROGRESS'].includes(route.status);
 
     const handleChangeVehicle = () => {
         toast('Funkcja zmiany pojazdu będzie dostępna wkrótce', {
@@ -110,8 +140,57 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
         });
     };
 
+    const formatDateTime = (isoString: string): string => {
+        const date = new Date(isoString);
+        return date.toLocaleString('pl-PL', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
     return (
         <div>
+            <StatusCard>
+                <StatusHeader>
+                    <StatusTitle>
+                        <Activity size={16} />
+                        Status trasy
+                    </StatusTitle>
+                </StatusHeader>
+                <StatusContent>
+                    <StatusInfo>
+                        <StatusBadgeWrapper>
+                            <Badge variant={statusVariants[route.status]} size="lg">
+                                {statusLabels[route.status]}
+                            </Badge>
+                        </StatusBadgeWrapper>
+                        {route.actualStartTime && (
+                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                                Rozpoczęto: {formatDateTime(route.actualStartTime)}
+                            </div>
+                        )}
+                        {route.actualEndTime && (
+                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                                Zakończono: {formatDateTime(route.actualEndTime)}
+                            </div>
+                        )}
+                    </StatusInfo>
+                    {canChangeStatus && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setIsStatusModalOpen(true)}
+                        >
+                            <RefreshCw size={14} />
+                            Zmień status
+                        </Button>
+                    )}
+                </StatusContent>
+            </StatusCard>
+
             <InfoGrid>
                 <InfoCard>
                     <InfoLabel>
@@ -197,27 +276,11 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
                 </InfoCard>
             </InfoGrid>
 
-            {route.actualStartTime && (
-                <InfoGrid style={{ marginTop: '1.5rem' }}>
-                    <InfoCard>
-                        <InfoLabel>
-                            <Clock size={16} />
-                            Faktyczny czas rozpoczęcia
-                        </InfoLabel>
-                        <InfoValue>{route.actualStartTime}</InfoValue>
-                    </InfoCard>
-
-                    {route.actualEndTime && (
-                        <InfoCard>
-                            <InfoLabel>
-                                <Clock size={16} />
-                                Faktyczny czas zakończenia
-                            </InfoLabel>
-                            <InfoValue>{route.actualEndTime}</InfoValue>
-                        </InfoCard>
-                    )}
-                </InfoGrid>
-            )}
+            <UpdateRouteStatusModal
+                isOpen={isStatusModalOpen}
+                onClose={() => setIsStatusModalOpen(false)}
+                route={route}
+            />
         </div>
     );
 };

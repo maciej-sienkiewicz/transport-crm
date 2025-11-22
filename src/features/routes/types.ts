@@ -385,3 +385,17 @@ export interface RouteDetail {
     createdAt: string;
     updatedAt: string;
 }
+
+export interface UpdateRouteStatusRequest {
+    status: RouteStatus;
+    actualStartTime?: string | null;
+    actualEndTime?: string | null;
+}
+
+export interface UpdateRouteStatusResponse {
+    id: string;
+    status: RouteStatus;
+    actualStartTime: string | null;
+    actualEndTime: string | null;
+    updatedAt: string;
+}

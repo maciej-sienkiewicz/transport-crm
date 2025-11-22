@@ -29,6 +29,10 @@ export const useAddChildToSeries = () => {
             }
         },
         onError: (error: any) => {
+            // Nie wyświetlaj toasta dla błędu 409 - zostanie obsłużony przez modal
+            if (error?.status === 409) {
+                return;
+            }
             toast.error(error?.message || 'Nie udało się dodać dziecka do serii');
         },
     });

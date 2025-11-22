@@ -25,6 +25,10 @@ export const queryClient = new QueryClient({
             retry: 0,
             onError: (error) => {
                 if (error instanceof ApiError) {
+                    if (error.isConflict) {
+                        return;
+                    }
+
                     if (!error.isUnauthorized) {
                         toast.error(error.message);
                     }

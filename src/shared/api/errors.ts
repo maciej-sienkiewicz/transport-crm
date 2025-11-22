@@ -4,7 +4,8 @@ export class ApiError extends Error {
     constructor(
         public statusCode: number,
         public message: string,
-        public errors?: Record<string, string>
+        public errors?: Record<string, string>,
+        public data?: any // DODANE: przechowuje pełne dane z response
     ) {
         super(message);
         this.name = 'ApiError';
@@ -27,6 +28,10 @@ export class ApiError extends Error {
         return this.statusCode === 404;
     }
 
+    get isConflict(): boolean {
+        return this.statusCode === 409;
+    }
+
     get isServerError(): boolean {
         return this.statusCode >= 500;
     }
@@ -45,9 +50,10 @@ export const handleApiError = (error: unknown): ApiError => {
         const status = error.response?.status ?? 0;
         const message = error.response?.data?.message ?? 'Nieoczekiwany błąd';
         const errors = error.response?.data?.errors;
+        const data = error.response?.data; // DODANE
 
-        return new ApiError(status, message, errors);
+        return new ApiError(status, message, errors, data);
     }
 
-    return new ApiError(0, 'Nieoczekiwany błąd aplikacji', undefined);
+    return new ApiError(0, 'Nieoczekiwany błąd aplikacji', undefined, undefined);
 };

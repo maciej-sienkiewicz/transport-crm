@@ -8,6 +8,8 @@ import {
     CreateRouteRequest,
     RouteStatus,
     AvailableChild,
+    UpdateRouteStatusRequest,
+    UpdateRouteStatusResponse,
 } from '../types';
 
 interface GetRoutesParams extends PaginationParams {
@@ -77,15 +79,12 @@ export const routesApi = {
 
     updateStatus: async (
         id: string,
-        status: RouteStatus,
-        actualStartTime?: string,
-        actualEndTime?: string
-    ): Promise<RouteDetail> => {
-        const response = await apiClient.patch<RouteDetail>(`/routes/${id}/status`, {
-            status,
-            actualStartTime,
-            actualEndTime,
-        });
+        data: UpdateRouteStatusRequest
+    ): Promise<UpdateRouteStatusResponse> => {
+        const response = await apiClient.patch<UpdateRouteStatusResponse>(
+            `/routes/${id}/status`,
+            data
+        );
         return response.data;
     },
 

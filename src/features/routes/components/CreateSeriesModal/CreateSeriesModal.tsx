@@ -8,6 +8,7 @@ import { Button } from '@/shared/ui/Button';
 import { Info, Calendar, Repeat } from 'lucide-react';
 import { useCreateRouteSeries } from '../../hooks/useCreateRouteSeries';
 import { RouteDetail, RecurrenceInterval } from '../../types';
+import { ConflictModal, ConflictData } from '../ConflictModal';
 import {
     FormGrid,
     RecurrenceOptions,
@@ -40,7 +41,7 @@ const calculateEstimatedRoutes = (
     endDate: string | null,
     interval: RecurrenceInterval
 ): number => {
-    if (!endDate) return 999; // Bezterminowo
+    if (!endDate) return 999;
 
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -62,6 +63,8 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
     const [startDate, setStartDate] = useState(getNextSameDay(route.date));
     const [hasEndDate, setHasEndDate] = useState(false);
     const [endDate, setEndDate] = useState('');
+    const [conflictData, setConflictData] = useState<ConflictData | null>(null);
+    const [isConflictModalOpen, setIsConflictModalOpen] = useState(false);
 
     const dayOfWeek = getDayOfWeek(startDate);
     const estimatedRoutes = calculateEstimatedRoutes(
@@ -70,6 +73,23 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
         recurrenceInterval
     );
 
+    // Nasłuchuj na błędy z mutation
+    useEffect(() => {
+        if (createSeries.isError && createSeries.error) {
+            const error: any = createSeries.error;
+
+            if (error?.statusCode === 409 && error?.data?.conflicts) {
+                setConflictData({
+                    message: error.data.message || 'Schedule conflicts detected',
+                    conflicts: error.data.conflicts,
+                    timestamp: error.data.timestamp || new Date().toISOString(),
+                });
+                setIsConflictModalOpen(true);
+                createSeries.reset();
+            }
+        }
+    }, [createSeries.isError, createSeries.error]);
+
     useEffect(() => {
         if (isOpen) {
             setSeriesName(route.routeName);
@@ -77,6 +97,10 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
             setStartDate(getNextSameDay(route.date));
             setHasEndDate(false);
             setEndDate('');
+            setConflictData(null);
+            setIsConflictModalOpen(false);
+            // Zresetuj stan mutation przy otwieraniu modalu
+            createSeries.reset();
         }
     }, [isOpen, route]);
 
@@ -90,7 +114,7 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
             return;
         }
 
-        await createSeries.mutateAsync({
+        const result = await createSeries.mutateAsync({
             routeId: route.id,
             data: {
                 seriesName: seriesName.trim(),
@@ -100,128 +124,143 @@ export const CreateSeriesModal: React.FC<CreateSeriesModalProps> = ({
             },
         });
 
-        onClose();
+        if (result) {
+            onClose();
+        }
+    };
+
+    const handleCloseConflictModal = () => {
+        setIsConflictModalOpen(false);
+        setConflictData(null);
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Utwórz cykliczną serię tras">
-            <FormGrid>
-                <Input
-                    label="Nazwa serii"
-                    required
-                    value={seriesName}
-                    onChange={(e) => setSeriesName(e.target.value)}
-                    placeholder="np. Monday Morning Route A"
-                />
-
-                <div>
-                    <label
-                        style={{
-                            display: 'block',
-                            fontSize: '0.875rem',
-                            fontWeight: 500,
-                            color: '#334155',
-                            marginBottom: '0.5rem',
-                        }}
-                    >
-                        Częstotliwość *
-                    </label>
-                    <RecurrenceOptions>
-                        <RecurrenceOption $checked={recurrenceInterval === 1}>
-                            <input
-                                type="radio"
-                                name="recurrence"
-                                checked={recurrenceInterval === 1}
-                                onChange={() => setRecurrenceInterval(1)}
-                            />
-                            Co tydzień
-                        </RecurrenceOption>
-                        <RecurrenceOption $checked={recurrenceInterval === 2}>
-                            <input
-                                type="radio"
-                                name="recurrence"
-                                checked={recurrenceInterval === 2}
-                                onChange={() => setRecurrenceInterval(2)}
-                            />
-                            Co 2 tygodnie
-                        </RecurrenceOption>
-                        <RecurrenceOption $checked={recurrenceInterval === 3}>
-                            <input
-                                type="radio"
-                                name="recurrence"
-                                checked={recurrenceInterval === 3}
-                                onChange={() => setRecurrenceInterval(3)}
-                            />
-                            Co 3 tygodnie
-                        </RecurrenceOption>
-                        <RecurrenceOption $checked={recurrenceInterval === 4}>
-                            <input
-                                type="radio"
-                                name="recurrence"
-                                checked={recurrenceInterval === 4}
-                                onChange={() => setRecurrenceInterval(4)}
-                            />
-                            Co 4 tygodnie
-                        </RecurrenceOption>
-                    </RecurrenceOptions>
-                </div>
-
-                <Input
-                    label="Powtarzaj od"
-                    type="date"
-                    required
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                />
-
-                <Checkbox
-                    label="Ustaw datę zakończenia"
-                    checked={hasEndDate}
-                    onChange={(e) => setHasEndDate(e.target.checked)}
-                />
-
-                {hasEndDate && (
+        <>
+            <Modal isOpen={isOpen} onClose={onClose} title="Utwórz cykliczną serię tras">
+                <FormGrid>
                     <Input
-                        label="Data zakończenia"
-                        type="date"
-                        required={hasEndDate}
-                        value={endDate}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        helperText="Pozostaw puste dla bezterminowej serii"
+                        label="Nazwa serii"
+                        required
+                        value={seriesName}
+                        onChange={(e) => setSeriesName(e.target.value)}
+                        placeholder="np. Monday Morning Route A"
                     />
-                )}
 
-                <InfoSection>
-                    <InfoRow>
-                        <Calendar size={16} />
-                        <strong>Dzień tygodnia:</strong> {dayOfWeek}
-                    </InfoRow>
-                    <InfoRow>
-                        <Repeat size={16} />
-                        <strong>Szacowana liczba tras:</strong>{' '}
-                        {hasEndDate && endDate ? `~${estimatedRoutes}` : 'Bezterminowo'}
-                    </InfoRow>
-                    <InfoRow>
-                        <Info size={16} />
-                        System wygeneruje automatycznie 2 trasy od razu, pozostałe będą
-                        generowane codziennie o 2:00
-                    </InfoRow>
-                </InfoSection>
+                    <div>
+                        <label
+                            style={{
+                                display: 'block',
+                                fontSize: '0.875rem',
+                                fontWeight: 500,
+                                color: '#334155',
+                                marginBottom: '0.5rem',
+                            }}
+                        >
+                            Częstotliwość *
+                        </label>
+                        <RecurrenceOptions>
+                            <RecurrenceOption $checked={recurrenceInterval === 1}>
+                                <input
+                                    type="radio"
+                                    name="recurrence"
+                                    checked={recurrenceInterval === 1}
+                                    onChange={() => setRecurrenceInterval(1)}
+                                />
+                                Co tydzień
+                            </RecurrenceOption>
+                            <RecurrenceOption $checked={recurrenceInterval === 2}>
+                                <input
+                                    type="radio"
+                                    name="recurrence"
+                                    checked={recurrenceInterval === 2}
+                                    onChange={() => setRecurrenceInterval(2)}
+                                />
+                                Co 2 tygodnie
+                            </RecurrenceOption>
+                            <RecurrenceOption $checked={recurrenceInterval === 3}>
+                                <input
+                                    type="radio"
+                                    name="recurrence"
+                                    checked={recurrenceInterval === 3}
+                                    onChange={() => setRecurrenceInterval(3)}
+                                />
+                                Co 3 tygodnie
+                            </RecurrenceOption>
+                            <RecurrenceOption $checked={recurrenceInterval === 4}>
+                                <input
+                                    type="radio"
+                                    name="recurrence"
+                                    checked={recurrenceInterval === 4}
+                                    onChange={() => setRecurrenceInterval(4)}
+                                />
+                                Co 4 tygodnie
+                            </RecurrenceOption>
+                        </RecurrenceOptions>
+                    </div>
 
-                <ButtonGroup>
-                    <Button variant="secondary" onClick={onClose} disabled={createSeries.isPending}>
-                        Anuluj
-                    </Button>
-                    <Button
-                        variant="primary"
-                        onClick={handleSubmit}
-                        isLoading={createSeries.isPending}
-                        disabled={!seriesName.trim() || createSeries.isPending}
-                    >
-                        Utwórz serię
-                    </Button>
-                </ButtonGroup>
-            </FormGrid>
-        </Modal>
+                    <Input
+                        label="Powtarzaj od"
+                        type="date"
+                        required
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                    />
+
+                    <Checkbox
+                        label="Ustaw datę zakończenia"
+                        checked={hasEndDate}
+                        onChange={(e) => setHasEndDate(e.target.checked)}
+                    />
+
+                    {hasEndDate && (
+                        <Input
+                            label="Data zakończenia"
+                            type="date"
+                            required={hasEndDate}
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            helperText="Pozostaw puste dla bezterminowej serii"
+                        />
+                    )}
+
+                    <InfoSection>
+                        <InfoRow>
+                            <Calendar size={16} />
+                            <strong>Dzień tygodnia:</strong> {dayOfWeek}
+                        </InfoRow>
+                        <InfoRow>
+                            <Repeat size={16} />
+                            <strong>Szacowana liczba tras:</strong>{' '}
+                            {hasEndDate && endDate ? `~${estimatedRoutes}` : 'Bezterminowo'}
+                        </InfoRow>
+                        <InfoRow>
+                            <Info size={16} />
+                            System wygeneruje automatycznie 2 trasy od razu, pozostałe będą
+                            generowane codziennie o 2:00
+                        </InfoRow>
+                    </InfoSection>
+
+                    <ButtonGroup>
+                        <Button variant="secondary" onClick={onClose} disabled={createSeries.isPending}>
+                            Anuluj
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={handleSubmit}
+                            isLoading={createSeries.isPending}
+                            disabled={!seriesName.trim() || createSeries.isPending}
+                        >
+                            Utwórz serię
+                        </Button>
+                    </ButtonGroup>
+                </FormGrid>
+            </Modal>
+
+            <ConflictModal
+                isOpen={isConflictModalOpen}
+                onClose={handleCloseConflictModal}
+                conflictData={conflictData}
+            />
+        </>
     );
 };

@@ -25,6 +25,17 @@ export const useCreateRouteSeries = () => {
             );
         },
         onError: (error: any) => {
+            console.log('🔴 useCreateRouteSeries onError:', error);
+            console.log('🔴 error.statusCode:', error?.statusCode);
+            console.log('🔴 error.isConflict:', error?.isConflict);
+            console.log('🔴 error.data:', error?.data);
+
+            // Nie wyświetlaj toasta dla błędu 409 - zostanie obsłużony przez modal
+            if (error?.statusCode === 409 || error?.isConflict) {
+                console.log('✅ Wykryto konflikt 409, nie pokazuję toasta, rzucam dalej');
+                // WAŻNE: Musimy rzucić błąd dalej, żeby komponent mógł go złapać
+                throw error;
+            }
             toast.error(error?.message || 'Nie udało się utworzyć serii');
         },
     });

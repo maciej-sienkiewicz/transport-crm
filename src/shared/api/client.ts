@@ -5,6 +5,10 @@ interface ApiErrorResponse {
     message: string;
     timestamp: string;
     errors?: Record<string, string>;
+    conflicts?: {
+        singleRoutes: Record<string, string[]>;
+        series: Record<string, string>;
+    };
 }
 
 export const apiClient = axios.create({
@@ -40,7 +44,8 @@ apiClient.interceptors.response.use(
                     new ApiError(
                         status,
                         'Sesja wygasła. Zaloguj się ponownie.',
-                        data?.errors
+                        data?.errors,
+                        data // DODANE: przekazujemy pełne dane
                     )
                 );
             }
@@ -50,7 +55,8 @@ apiClient.interceptors.response.use(
                     new ApiError(
                         status,
                         'Nie masz uprawnień do wykonania tej operacji.',
-                        data?.errors
+                        data?.errors,
+                        data // DODANE
                     )
                 );
             }
@@ -60,7 +66,8 @@ apiClient.interceptors.response.use(
                     new ApiError(
                         status,
                         data?.message || 'Nie znaleziono zasobu.',
-                        data?.errors
+                        data?.errors,
+                        data // DODANE
                     )
                 );
             }
@@ -70,7 +77,8 @@ apiClient.interceptors.response.use(
                     new ApiError(
                         status,
                         data?.message || 'Konflikt danych.',
-                        data?.errors
+                        data?.errors,
+                        data
                     )
                 );
             }
@@ -80,7 +88,8 @@ apiClient.interceptors.response.use(
                     new ApiError(
                         status,
                         'Wystąpił błąd serwera. Spróbuj ponownie później.',
-                        data?.errors
+                        data?.errors,
+                        data // DODANE
                     )
                 );
             }
@@ -89,7 +98,8 @@ apiClient.interceptors.response.use(
                 new ApiError(
                     status,
                     data?.message || 'Wystąpił nieoczekiwany błąd.',
-                    data?.errors
+                    data?.errors,
+                    data // DODANE
                 )
             );
         }
@@ -99,6 +109,7 @@ apiClient.interceptors.response.use(
                 new ApiError(
                     0,
                     'Brak połączenia z serwerem. Sprawdź połączenie internetowe.',
+                    undefined,
                     undefined
                 )
             );
@@ -108,6 +119,7 @@ apiClient.interceptors.response.use(
             new ApiError(
                 0,
                 'Wystąpił nieoczekiwany błąd.',
+                undefined,
                 undefined
             )
         );
