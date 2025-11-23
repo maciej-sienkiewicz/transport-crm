@@ -1,40 +1,41 @@
+// src/pages/guardians/GuardianDetailPage.tsx
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { GuardianDetail } from '@/features/guardians/components/GuardianDetail';
+import { GuardianDetailView } from '@/features/guardians/components/GuardianDetailView';
 import { GuardianForm } from '@/features/guardians/components/GuardianForm';
 import { useUpdateGuardian } from '@/features/guardians/hooks/useUpdateGuardian';
+import { useGuardianDetail } from '@/features/guardians/hooks/useGuardianDetail';
 import { Card } from '@/shared/ui/Card';
 import { GuardianFormData } from '@/features/guardians/lib/validation';
-import {useGuardian} from "@/features/guardians/hooks/useGuardian.ts";
 
 const PageContainer = styled.div`
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: ${({ theme }) => theme.spacing.xl};
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: ${({ theme }) => theme.spacing.xl};
 
-  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    padding: ${({ theme }) => theme.spacing.lg};
-  }
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        padding: ${({ theme }) => theme.spacing.lg};
+    }
 `;
 
 const PageHeader = styled.div`
-  margin-bottom: ${({ theme }) => theme.spacing.xl};
+    margin-bottom: ${({ theme }) => theme.spacing.xl};
 `;
 
 const PageTitle = styled.h1`
-  font-size: 1.875rem;
-  font-weight: 700;
-  color: ${({ theme }) => theme.colors.slate[900]};
-  margin-bottom: ${({ theme }) => theme.spacing.sm};
+    font-size: 1.875rem;
+    font-weight: 700;
+    color: ${({ theme }) => theme.colors.slate[900]};
+    margin-bottom: ${({ theme }) => theme.spacing.sm};
 
-  @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
-    font-size: 1.5rem;
-  }
+    @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
+        font-size: 1.5rem;
+    }
 `;
 
 const PageDescription = styled.p`
-  font-size: 1rem;
-  color: ${({ theme }) => theme.colors.slate[600]};
+    font-size: 1rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
 `;
 
 interface GuardianDetailPageProps {
@@ -43,11 +44,19 @@ interface GuardianDetailPageProps {
 
 export const GuardianDetailPage: React.FC<GuardianDetailPageProps> = ({ id }) => {
     const [isEditing, setIsEditing] = useState(false);
-    const { data: guardian } = useGuardian(id);
+    const { data: guardian } = useGuardianDetail(id);
     const updateGuardian = useUpdateGuardian(id);
 
     const handleUpdate = async (data: GuardianFormData) => {
-        await updateGuardian.mutateAsync(data);
+        const updateData = {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email || null,
+            phone: data.phone,
+            address: data.address || null,
+        };
+
+        await updateGuardian.mutateAsync(updateData);
         setIsEditing(false);
     };
 
@@ -67,7 +76,13 @@ export const GuardianDetailPage: React.FC<GuardianDetailPageProps> = ({ id }) =>
                 <Card>
                     <Card.Content>
                         <GuardianForm
-                            initialData={guardian}
+                            initialData={{
+                                firstName: guardian.firstName,
+                                lastName: guardian.lastName,
+                                email: guardian.email || '',
+                                phone: guardian.phone,
+                                address: guardian.address,
+                            }}
                             onSubmit={handleUpdate}
                             onCancel={() => setIsEditing(false)}
                             isLoading={updateGuardian.isPending}
@@ -79,8 +94,10 @@ export const GuardianDetailPage: React.FC<GuardianDetailPageProps> = ({ id }) =>
     }
 
     return (
-        <PageContainer>
-            <GuardianDetail id={id} onEdit={() => setIsEditing(true)} onBack={handleBack} />
-        </PageContainer>
+        <GuardianDetailView
+            id={id}
+            onEdit={() => setIsEditing(true)}
+            onBack={handleBack}
+        />
     );
 };

@@ -1,0 +1,1 @@
+export { GuardianContactHistory } from './GuardianContactHistory';

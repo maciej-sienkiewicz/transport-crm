@@ -1,0 +1,1 @@
+export { GuardianDetailView } from './GuardianDetailView';
