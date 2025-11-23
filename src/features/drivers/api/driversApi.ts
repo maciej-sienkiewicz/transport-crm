@@ -21,6 +21,7 @@ import {
     UploadUrlResponse,
     DocumentUploadResult, AvailableDriverListItem,
 } from '../types';
+import {CreateDriverAbsenceResponse} from "@/shared/types/routeImpact.ts";
 
 interface GetDriversParams extends PaginationParams {
     status?: DriverStatus;
@@ -215,8 +216,8 @@ export const driversApi = {
     createAbsence: async (
         driverId: string,
         data: CreateDriverAbsenceRequest
-    ): Promise<DriverAbsence> => {
-        const response = await apiClient.post<DriverAbsence>(
+    ): Promise<CreateDriverAbsenceResponse> => {
+        const response = await apiClient.post<CreateDriverAbsenceResponse>(
             `/drivers/${driverId}/absences`,
             data
         );

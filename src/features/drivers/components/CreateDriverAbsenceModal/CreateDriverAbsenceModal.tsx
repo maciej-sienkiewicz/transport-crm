@@ -5,6 +5,7 @@ import { Modal } from '@/shared/ui/Modal';
 import { Button } from '@/shared/ui/Button';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/Select';
+import { RouteImpactModal, RouteImpactData } from '@/shared/ui/RouteImpactModal';
 import { useCreateDriverAbsence } from '../../hooks/useDriverAbsences';
 import { createDriverAbsenceSchema } from '../../lib/absenceValidation';
 import { DriverAbsenceType } from '../../types';
@@ -110,6 +111,8 @@ export const CreateDriverAbsenceModal: React.FC<CreateDriverAbsenceModalProps> =
         reason: '',
     });
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [impactData, setImpactData] = useState<RouteImpactData | null>(null);
+    const [isImpactModalOpen, setIsImpactModalOpen] = useState(false);
 
     const absenceTypeOptions = [
         { value: 'VACATION', label: 'Urlop' },
@@ -125,8 +128,22 @@ export const CreateDriverAbsenceModal: React.FC<CreateDriverAbsenceModalProps> =
 
         try {
             const validatedData = createDriverAbsenceSchema.parse(formData);
-            await createAbsence.mutateAsync(validatedData);
+            const response = await createAbsence.mutateAsync(validatedData);
+
+            // Zamknij formularz przed pokazaniem modalu z wpływem
             handleClose();
+
+            // Jeśli są jakieś zaktualizowane trasy lub serie, pokaż modal
+            if (response.affectedRoutes.length > 0 || response.affectedSeries.length > 0) {
+                setImpactData({
+                    title: 'Nieobecność kierowcy zgłoszona',
+                    message: `Zaktualizowano ${response.routesUpdated} tras i ${response.seriesUpdated} serii. Następujące trasy wymagają przypisania nowego kierowcy:`,
+                    affectedRoutes: response.affectedRoutes,
+                    affectedSeries: response.affectedSeries,
+                    variant: 'warning',
+                });
+                setIsImpactModalOpen(true);
+            }
         } catch (err: any) {
             if (err.errors) {
                 const newErrors: Record<string, string> = {};
@@ -150,94 +167,107 @@ export const CreateDriverAbsenceModal: React.FC<CreateDriverAbsenceModalProps> =
         onClose();
     };
 
+    const handleCloseImpactModal = () => {
+        setIsImpactModalOpen(false);
+        setImpactData(null);
+    };
+
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title="Zgłoś nieobecność kierowcy">
-            <FormContainer onSubmit={handleSubmit}>
-                <div>
-                    <Label>
-                        Typ nieobecności
-                        <RequiredMark>*</RequiredMark>
-                    </Label>
-                    <Select
-                        value={formData.type}
-                        onChange={(e) => {
-                            setFormData({ ...formData, type: e.target.value as DriverAbsenceType });
-                            if (errors.type) setErrors({ ...errors, type: '' });
-                        }}
-                        options={absenceTypeOptions}
-                        required
-                        disabled={createAbsence.isPending}
-                    />
-                    {errors.type && <ErrorMessage>{errors.type}</ErrorMessage>}
-                </div>
-
-                <FormRow>
+        <>
+            <Modal isOpen={isOpen} onClose={handleClose} title="Zgłoś nieobecność kierowcy">
+                <FormContainer onSubmit={handleSubmit}>
                     <div>
                         <Label>
-                            Data rozpoczęcia
+                            Typ nieobecności
                             <RequiredMark>*</RequiredMark>
                         </Label>
-                        <Input
-                            type="date"
-                            value={formData.startDate}
+                        <Select
+                            value={formData.type}
                             onChange={(e) => {
-                                setFormData({ ...formData, startDate: e.target.value });
-                                if (errors.startDate) setErrors({ ...errors, startDate: '' });
+                                setFormData({ ...formData, type: e.target.value as DriverAbsenceType });
+                                if (errors.type) setErrors({ ...errors, type: '' });
                             }}
+                            options={absenceTypeOptions}
                             required
                             disabled={createAbsence.isPending}
-                            error={errors.startDate}
                         />
+                        {errors.type && <ErrorMessage>{errors.type}</ErrorMessage>}
                     </div>
+
+                    <FormRow>
+                        <div>
+                            <Label>
+                                Data rozpoczęcia
+                                <RequiredMark>*</RequiredMark>
+                            </Label>
+                            <Input
+                                type="date"
+                                value={formData.startDate}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, startDate: e.target.value });
+                                    if (errors.startDate) setErrors({ ...errors, startDate: '' });
+                                }}
+                                required
+                                disabled={createAbsence.isPending}
+                                error={errors.startDate}
+                            />
+                        </div>
+
+                        <div>
+                            <Label>
+                                Data zakończenia
+                                <RequiredMark>*</RequiredMark>
+                            </Label>
+                            <Input
+                                type="date"
+                                value={formData.endDate}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, endDate: e.target.value });
+                                    if (errors.endDate) setErrors({ ...errors, endDate: '' });
+                                }}
+                                required
+                                disabled={createAbsence.isPending}
+                                error={errors.endDate}
+                            />
+                        </div>
+                    </FormRow>
 
                     <div>
-                        <Label>
-                            Data zakończenia
-                            <RequiredMark>*</RequiredMark>
-                        </Label>
-                        <Input
-                            type="date"
-                            value={formData.endDate}
+                        <Label>Powód (opcjonalnie)</Label>
+                        <TextArea
+                            value={formData.reason}
                             onChange={(e) => {
-                                setFormData({ ...formData, endDate: e.target.value });
-                                if (errors.endDate) setErrors({ ...errors, endDate: '' });
+                                setFormData({ ...formData, reason: e.target.value });
+                                if (errors.reason) setErrors({ ...errors, reason: '' });
                             }}
-                            required
+                            placeholder="np. Urlop wypoczynkowy, zwolnienie lekarskie..."
+                            maxLength={1000}
                             disabled={createAbsence.isPending}
-                            error={errors.endDate}
                         />
+                        {errors.reason && <ErrorMessage>{errors.reason}</ErrorMessage>}
                     </div>
-                </FormRow>
 
-                <div>
-                    <Label>Powód (opcjonalnie)</Label>
-                    <TextArea
-                        value={formData.reason}
-                        onChange={(e) => {
-                            setFormData({ ...formData, reason: e.target.value });
-                            if (errors.reason) setErrors({ ...errors, reason: '' });
-                        }}
-                        placeholder="np. Urlop wypoczynkowy, zwolnienie lekarskie..."
-                        maxLength={1000}
-                        disabled={createAbsence.isPending}
-                    />
-                    {errors.reason && <ErrorMessage>{errors.reason}</ErrorMessage>}
-                </div>
+                    <FormActions>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleClose}
+                            disabled={createAbsence.isPending}
+                        >
+                            Anuluj
+                        </Button>
+                        <Button type="submit" isLoading={createAbsence.isPending}>
+                            Zgłoś nieobecność
+                        </Button>
+                    </FormActions>
+                </FormContainer>
+            </Modal>
 
-                <FormActions>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={handleClose}
-                        disabled={createAbsence.isPending}
-                    >
-                        Anuluj
-                    </Button>
-                    <Button type="submit" isLoading={createAbsence.isPending}>
-                        Zgłoś nieobecność
-                    </Button>
-                </FormActions>
-            </FormContainer>
-        </Modal>
+            <RouteImpactModal
+                isOpen={isImpactModalOpen}
+                onClose={handleCloseImpactModal}
+                data={impactData}
+            />
+        </>
     );
 };
