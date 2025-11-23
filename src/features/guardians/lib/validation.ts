@@ -22,20 +22,15 @@ export const guardianFormSchema = z.object({
         .max(255, 'Nazwisko może mieć maksymalnie 255 znaków'),
     email: z
         .string()
-        .min(1, 'Email jest wymagany')
         .email('Nieprawidłowy format email')
-        .max(255),
+        .max(255)
+        .optional()
+        .or(z.literal('')),
     phone: z
         .string()
         .min(1, 'Numer telefonu jest wymagany')
         .regex(/^\+?[0-9\s\-()]{9,20}$/, 'Nieprawidłowy format numeru telefonu'),
-    alternatePhone: z
-        .string()
-        .regex(/^\+?[0-9\s\-()]{9,20}$/, 'Nieprawidłowy format numeru telefonu')
-        .optional()
-        .or(z.literal('')),
-    address: addressSchema,
-    communicationPreference: z.enum(['SMS', 'EMAIL', 'PHONE', 'APP']),
+    address: addressSchema.optional(),
 });
 
 export type GuardianFormData = z.infer<typeof guardianFormSchema>;

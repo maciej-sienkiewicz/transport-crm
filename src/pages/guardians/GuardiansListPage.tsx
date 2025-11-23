@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { GuardiansList } from '@/features/guardians/components/GuardiansList';
+import { CreateGuardianModal } from '@/features/guardians/components/CreateGuardianModal';
 import { useCreateGuardian } from '@/features/guardians/hooks/useCreateGuardian';
-import { Card } from '@/shared/ui/Card';
-import { GuardianFormData } from '@/features/guardians/lib/validation';
-import { GuardianForm } from '@/features/guardians/components/GuardianForm';
-
+import { CreateGuardianRequest } from '@/features/guardians/types';
 
 const PageContainer = styled.div`
   max-width: 1400px;
@@ -38,35 +36,13 @@ const PageDescription = styled.p`
 `;
 
 export const GuardiansListPage: React.FC = () => {
-    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
     const createGuardian = useCreateGuardian();
 
-    const handleCreate = async (data: GuardianFormData) => {
+    const handleCreate = async (data: CreateGuardianRequest) => {
         await createGuardian.mutateAsync(data);
-        setShowCreateForm(false);
+        setShowCreateModal(false);
     };
-
-    if (showCreateForm) {
-        return (
-            <PageContainer>
-                <PageHeader>
-                    <PageTitle>Dodaj nowego opiekuna</PageTitle>
-                    <PageDescription>
-                        Wypełnij formularz, aby dodać nowego opiekuna do systemu
-                    </PageDescription>
-                </PageHeader>
-                <Card>
-                    <Card.Content>
-                        <GuardianForm
-                            onSubmit={handleCreate}
-                            onCancel={() => setShowCreateForm(false)}
-                            isLoading={createGuardian.isPending}
-                        />
-                    </Card.Content>
-                </Card>
-            </PageContainer>
-        );
-    }
 
     return (
         <PageContainer>
@@ -76,7 +52,14 @@ export const GuardiansListPage: React.FC = () => {
                     Zarządzaj opiekunami dzieci korzystających z transportu
                 </PageDescription>
             </PageHeader>
-            <GuardiansList onCreateClick={() => setShowCreateForm(true)} />
+            <GuardiansList onCreateClick={() => setShowCreateModal(true)} />
+
+            <CreateGuardianModal
+                isOpen={showCreateModal}
+                onClose={() => setShowCreateModal(false)}
+                onSubmit={handleCreate}
+                isLoading={createGuardian.isPending}
+            />
         </PageContainer>
     );
 };

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { guardianFormSchema, GuardianFormData } from '../../lib/validation';
 import { Input } from '@/shared/ui/Input';
-import { Select } from '@/shared/ui/Select';
 import { Button } from '@/shared/ui/Button';
 import {
     FormContainer,
@@ -29,7 +28,6 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
         lastName: initialData?.lastName || '',
         email: initialData?.email || '',
         phone: initialData?.phone || '',
-        alternatePhone: initialData?.alternatePhone || '',
         address: initialData?.address || {
             street: '',
             houseNumber: '',
@@ -37,7 +35,6 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
             postalCode: '',
             city: '',
         },
-        communicationPreference: initialData?.communicationPreference || 'SMS',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -48,7 +45,7 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
             setFormData((prev) => ({
                 ...prev,
                 address: {
-                    ...prev.address,
+                    ...prev.address!,
                     [addressField]: value,
                 },
             }));
@@ -87,13 +84,6 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
         }
     };
 
-    const communicationOptions = [
-        { value: 'SMS', label: 'SMS' },
-        { value: 'EMAIL', label: 'Email' },
-        { value: 'PHONE', label: 'Telefon' },
-        { value: 'APP', label: 'Aplikacja' },
-    ];
-
     return (
         <FormContainer onSubmit={handleSubmit}>
             <FormSection>
@@ -125,7 +115,6 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
                         value={formData.email}
                         onChange={(e) => handleChange('email', e.target.value)}
                         error={errors.email}
-                        required
                     />
                     <Input
                         label="Telefon"
@@ -137,46 +126,27 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
                         required
                     />
                 </FormRow>
-                <FormRow>
-                    <Input
-                        label="Telefon alternatywny"
-                        type="tel"
-                        value={formData.alternatePhone}
-                        onChange={(e) => handleChange('alternatePhone', e.target.value)}
-                        error={errors.alternatePhone}
-                        placeholder="+48123456789"
-                    />
-                    <Select
-                        label="Preferowany sposób komunikacji"
-                        value={formData.communicationPreference}
-                        onChange={(e) => handleChange('communicationPreference', e.target.value)}
-                        options={communicationOptions}
-                        required
-                    />
-                </FormRow>
             </FormSection>
 
             <FormSection>
-                <SectionTitle>Adres</SectionTitle>
+                <SectionTitle>Adres (opcjonalnie)</SectionTitle>
                 <FormRow>
                     <Input
                         label="Ulica"
-                        value={formData.address.street}
+                        value={formData.address?.street || ''}
                         onChange={(e) => handleChange('address.street', e.target.value)}
                         error={errors['address.street']}
-                        required
                     />
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1rem' }}>
                         <Input
                             label="Numer domu"
-                            value={formData.address.houseNumber}
+                            value={formData.address?.houseNumber || ''}
                             onChange={(e) => handleChange('address.houseNumber', e.target.value)}
                             error={errors['address.houseNumber']}
-                            required
                         />
                         <Input
                             label="Numer mieszkania"
-                            value={formData.address.apartmentNumber}
+                            value={formData.address?.apartmentNumber || ''}
                             onChange={(e) => handleChange('address.apartmentNumber', e.target.value)}
                             error={errors['address.apartmentNumber']}
                         />
@@ -185,18 +155,16 @@ export const GuardianForm: React.FC<GuardianFormProps> = ({
                 <FormRow>
                     <Input
                         label="Kod pocztowy"
-                        value={formData.address.postalCode}
+                        value={formData.address?.postalCode || ''}
                         onChange={(e) => handleChange('address.postalCode', e.target.value)}
                         error={errors['address.postalCode']}
                         placeholder="00-000"
-                        required
                     />
                     <Input
                         label="Miasto"
-                        value={formData.address.city}
+                        value={formData.address?.city || ''}
                         onChange={(e) => handleChange('address.city', e.target.value)}
                         error={errors['address.city']}
-                        required
                     />
                 </FormRow>
             </FormSection>

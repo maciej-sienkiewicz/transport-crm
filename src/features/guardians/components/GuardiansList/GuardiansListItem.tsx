@@ -6,32 +6,37 @@ import { useDeleteGuardian } from '../../hooks/useDeleteGuardian';
 import { Table } from '@/shared/ui/Table';
 
 const ActionsCell = styled(Table.Cell)`
-  text-align: right;
+    text-align: right;
 `;
 
 const ActionButton = styled.button`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: ${({ theme }) => theme.borderRadius.md};
-  color: ${({ theme }) => theme.colors.slate[600]};
-  cursor: pointer;
-  transition: all ${({ theme }) => theme.transitions.fast};
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-radius: ${({ theme }) => theme.borderRadius.md};
+    color: ${({ theme }) => theme.colors.slate[600]};
+    cursor: pointer;
+    transition: all ${({ theme }) => theme.transitions.fast};
 
-  &:hover {
-    background: ${({ theme }) => theme.colors.slate[100]};
-    color: ${({ theme }) => theme.colors.slate[900]};
-  }
+    &:hover {
+        background: ${({ theme }) => theme.colors.slate[100]};
+        color: ${({ theme }) => theme.colors.slate[900]};
+    }
 `;
 
 const ActionsGroup = styled.div`
-  display: inline-flex;
-  gap: ${({ theme }) => theme.spacing.xs};
+    display: inline-flex;
+    gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const NoData = styled.span`
+  color: ${({ theme }) => theme.colors.slate[400]};
+  font-style: italic;
 `;
 
 interface GuardiansListItemProps {
@@ -58,7 +63,9 @@ export const GuardiansListItem: React.FC<GuardiansListItemProps> = ({ guardian }
             <Table.Cell>
                 {guardian.firstName} {guardian.lastName}
             </Table.Cell>
-            <Table.Cell>{guardian.email}</Table.Cell>
+            <Table.Cell>
+                {guardian.email || <NoData>Brak</NoData>}
+            </Table.Cell>
             <Table.Cell>{guardian.phone}</Table.Cell>
             <Table.Cell>{guardian.childrenCount}</Table.Cell>
             <ActionsCell>

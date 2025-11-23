@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Edit2, Trash2, ArrowLeft } from 'lucide-react';
 import { useGuardian } from '../../hooks/useGuardian';
@@ -30,13 +29,6 @@ interface GuardianDetailProps {
     onEdit: () => void;
     onBack: () => void;
 }
-
-const communicationPreferenceLabels: Record<string, string> = {
-    SMS: 'SMS',
-    EMAIL: 'Email',
-    PHONE: 'Telefon',
-    APP: 'Aplikacja',
-};
 
 const relationshipLabels: Record<string, string> = {
     PARENT: 'Rodzic',
@@ -78,7 +70,7 @@ export const GuardianDetail: React.FC<GuardianDetailProps> = ({ id, onEdit, onBa
                     <GuardianName>
                         {guardian.firstName} {guardian.lastName}
                     </GuardianName>
-                    <GuardianEmail>{guardian.email}</GuardianEmail>
+                    {guardian.email && <GuardianEmail>{guardian.email}</GuardianEmail>}
                 </HeaderInfo>
                 <HeaderActions>
                     <Button variant="ghost" onClick={onBack}>
@@ -106,44 +98,40 @@ export const GuardianDetail: React.FC<GuardianDetailProps> = ({ id, onEdit, onBa
                             <InfoLabel>Telefon</InfoLabel>
                             <InfoValue>{guardian.phone}</InfoValue>
                         </InfoItem>
-                        {guardian.alternatePhone && (
+                        {guardian.email && (
                             <InfoItem>
-                                <InfoLabel>Telefon alternatywny</InfoLabel>
-                                <InfoValue>{guardian.alternatePhone}</InfoValue>
+                                <InfoLabel>Email</InfoLabel>
+                                <InfoValue>{guardian.email}</InfoValue>
                             </InfoItem>
                         )}
-                        <InfoItem>
-                            <InfoLabel>Preferowany kontakt</InfoLabel>
-                            <InfoValue>
-                                {communicationPreferenceLabels[guardian.communicationPreference]}
-                            </InfoValue>
-                        </InfoItem>
                     </InfoGrid>
                 </Card.Content>
             </Card>
 
-            <Card>
-                <Card.Header>
-                    <Card.Title>Adres</Card.Title>
-                </Card.Header>
-                <Card.Content>
-                    <InfoGrid>
-                        <InfoItem>
-                            <InfoLabel>Ulica i numer</InfoLabel>
-                            <InfoValue>
-                                {guardian.address.street} {guardian.address.houseNumber}
-                                {guardian.address.apartmentNumber && `/${guardian.address.apartmentNumber}`}
-                            </InfoValue>
-                        </InfoItem>
-                        <InfoItem>
-                            <InfoLabel>Miasto</InfoLabel>
-                            <InfoValue>
-                                {guardian.address.postalCode} {guardian.address.city}
-                            </InfoValue>
-                        </InfoItem>
-                    </InfoGrid>
-                </Card.Content>
-            </Card>
+            {guardian.address && (
+                <Card>
+                    <Card.Header>
+                        <Card.Title>Adres</Card.Title>
+                    </Card.Header>
+                    <Card.Content>
+                        <InfoGrid>
+                            <InfoItem>
+                                <InfoLabel>Ulica i numer</InfoLabel>
+                                <InfoValue>
+                                    {guardian.address.street} {guardian.address.houseNumber}
+                                    {guardian.address.apartmentNumber && `/${guardian.address.apartmentNumber}`}
+                                </InfoValue>
+                            </InfoItem>
+                            <InfoItem>
+                                <InfoLabel>Miasto</InfoLabel>
+                                <InfoValue>
+                                    {guardian.address.postalCode} {guardian.address.city}
+                                </InfoValue>
+                            </InfoItem>
+                        </InfoGrid>
+                    </Card.Content>
+                </Card>
+            )}
 
             {guardian.children && guardian.children.length > 0 && (
                 <div>
