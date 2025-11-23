@@ -131,8 +131,8 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
                                                           }) => {
     const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
     const estimatedChildrenCount = Math.ceil(route.stops.length / 2);
-    const canReassign = route.status === 'PLANNED';
-    const canChangeStatus = ['PLANNED', 'IN_PROGRESS'].includes(route.status);
+    const canReassign = route.status === 'PLANNED' || route.status === 'DRIVER_MISSING';
+    const canChangeStatus = ['PLANNED', 'IN_PROGRESS', 'DRIVER_MISSING'].includes(route.status);
 
     const handleChangeVehicle = () => {
         toast('Funkcja zmiany pojazdu będzie dostępna wkrótce', {
@@ -198,18 +198,38 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
                         Kierowca
                     </InfoLabel>
                     <InfoValue>
-                        <InfoLink onClick={onDriverClick}>
-                            {route.driver.firstName} {route.driver.lastName}
-                        </InfoLink>
-                        {canReassign && (
-                            <ChangeButton
-                                variant="secondary"
-                                size="sm"
-                                onClick={onChangeDriver}
-                            >
-                                <RefreshCw size={12} />
-                                Zmień
-                            </ChangeButton>
+                        {route.driver ? (
+                            <>
+                                <InfoLink onClick={onDriverClick}>
+                                    {route.driver.firstName} {route.driver.lastName}
+                                </InfoLink>
+                                {canReassign && (
+                                    <ChangeButton
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={onChangeDriver}
+                                    >
+                                        <RefreshCw size={12} />
+                                        Zmień
+                                    </ChangeButton>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>
+                                    Nie przypisano
+                                </span>
+                                {canReassign && (
+                                    <ChangeButton
+                                        variant="primary"
+                                        size="sm"
+                                        onClick={onChangeDriver}
+                                    >
+                                        <RefreshCw size={12} />
+                                        Przypisz
+                                    </ChangeButton>
+                                )}
+                            </>
                         )}
                     </InfoValue>
                 </InfoCard>

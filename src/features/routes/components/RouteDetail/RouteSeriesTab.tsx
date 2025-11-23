@@ -290,7 +290,7 @@ export const RouteSeriesTab: React.FC<RouteSeriesTabProps> = ({ route, onCreateS
                         </StatItem>
                         <StatItem>
                             <User size={16} />
-                            Kierowca: {route.driver.firstName} {route.driver.lastName}
+                            Kierowca: {route.driver ? `${route.driver.firstName} ${route.driver.lastName}` : 'Nie przypisano'} {/* ← ZMIANA */}
                         </StatItem>
                         <StatItem>
                             <Truck size={16} />

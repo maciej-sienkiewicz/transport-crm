@@ -19,6 +19,7 @@ export const statusLabels: Record<RouteStatus, string> = {
     IN_PROGRESS: 'W trakcie',
     COMPLETED: 'Zakończona',
     CANCELLED: 'Anulowana',
+    DRIVER_MISSING: 'Brak kierowcy', // ← DODANE
 };
 
 export const statusVariants: Record<
@@ -29,6 +30,7 @@ export const statusVariants: Record<
     IN_PROGRESS: 'warning',
     COMPLETED: 'success',
     CANCELLED: 'default',
+    DRIVER_MISSING: 'warning', // ← DODANE
 };
 
 export const executionStatusLabels: Record<ExecutionStatus, string> = {

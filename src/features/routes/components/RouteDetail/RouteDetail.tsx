@@ -397,7 +397,7 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
                         onClose={() => setIsReassignDriverModalOpen(false)}
                         routeId={route.id}
                         routeDate={route.date}
-                        currentDriver={route.driver}
+                        currentDriver={route.driver} // ← Może być null, modal obsłuży to
                     />
                 </>
             )}

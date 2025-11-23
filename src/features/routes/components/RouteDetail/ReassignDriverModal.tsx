@@ -74,7 +74,7 @@ interface ReassignDriverModalProps {
         firstName: string;
         lastName: string;
         phone: string;
-    };
+    } | null;
 }
 
 export const ReassignDriverModal: React.FC<ReassignDriverModalProps> = ({
@@ -122,12 +122,18 @@ export const ReassignDriverModal: React.FC<ReassignDriverModalProps> = ({
     const filteredDrivers = availableDrivers?.content || [];
 
     return (
-        <Modal isOpen={isOpen} onClose={handleClose} title="Zmień kierowcę">
+        <Modal
+            isOpen={isOpen}
+            onClose={handleClose}
+            title={currentDriver ? "Zmień kierowcę" : "Przypisz kierowcę"}
+        >
             <FormContainer onSubmit={handleSubmit}>
-                <CurrentDriverInfo>
-                    <strong>Obecny kierowca:</strong> {currentDriver.firstName}{' '}
-                    {currentDriver.lastName} ({currentDriver.phone})
-                </CurrentDriverInfo>
+                {currentDriver && ( // ← ZMIANA
+                    <CurrentDriverInfo>
+                        <strong>Obecny kierowca:</strong> {currentDriver.firstName}{' '}
+                        {currentDriver.lastName} ({currentDriver.phone})
+                    </CurrentDriverInfo>
+                )}
 
                 <InfoBanner>
                     <AlertCircle size={16} />
@@ -187,7 +193,7 @@ export const ReassignDriverModal: React.FC<ReassignDriverModalProps> = ({
                         disabled={!selectedDriverId || reassignDriver.isPending}
                         isLoading={reassignDriver.isPending}
                     >
-                        Zmień kierowcę
+                        {currentDriver ? 'Zmień kierowcę' : 'Przypisz kierowcę'}
                     </Button>
                 </ButtonGroup>
             </FormContainer>

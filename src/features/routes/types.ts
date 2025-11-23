@@ -1,4 +1,10 @@
-export type RouteStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type RouteStatus =
+    | 'PLANNED'
+    | 'IN_PROGRESS'
+    | 'COMPLETED'
+    | 'CANCELLED'
+    | 'DRIVER_MISSING'; // ← DODANE
+
 
 export type StopType = 'PICKUP' | 'DROPOFF';
 
@@ -76,7 +82,7 @@ export interface RouteListItem {
         id: string;
         firstName: string;
         lastName: string;
-    };
+    } | null;
     vehicle: {
         id: string;
         registrationNumber: string;
@@ -90,6 +96,7 @@ export interface RouteListItem {
 export interface RouteDetail {
     id: string;
     companyId: string;
+    seriesId: string | null;
     routeName: string;
     date: string;
     status: RouteStatus;
@@ -98,7 +105,7 @@ export interface RouteDetail {
         firstName: string;
         lastName: string;
         phone: string;
-    };
+    } | null; // ← ZMIANA
     vehicle: {
         id: string;
         registrationNumber: string;
@@ -263,7 +270,7 @@ export interface RouteSeriesDetail {
     companyId: string;
     seriesName: string;
     routeNameTemplate: string;
-    driverId: string;
+    driverId: string | null; // ← ZMIANA
     vehicleId: string;
     estimatedStartTime: string;
     estimatedEndTime: string;
@@ -360,7 +367,7 @@ export interface RouteDetail {
         firstName: string;
         lastName: string;
         phone: string;
-    };
+    } | null; // ← ZMIANA
     vehicle: {
         id: string;
         registrationNumber: string;

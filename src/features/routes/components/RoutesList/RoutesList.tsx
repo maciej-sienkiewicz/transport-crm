@@ -156,6 +156,7 @@ const statusLabels: Record<RouteStatus, string> = {
     IN_PROGRESS: 'W trakcie',
     COMPLETED: 'Zakończona',
     CANCELLED: 'Anulowana',
+    DRIVER_MISSING: 'Brak kierowcy',
 };
 
 const statusVariants: Record<RouteStatus, 'default' | 'primary' | 'success' | 'warning' | 'danger'> = {
@@ -163,6 +164,7 @@ const statusVariants: Record<RouteStatus, 'default' | 'primary' | 'success' | 'w
     IN_PROGRESS: 'warning',
     COMPLETED: 'success',
     CANCELLED: 'default',
+    DRIVER_MISSING: 'warning',
 };
 
 export const RoutesList: React.FC = () => {
@@ -205,7 +207,9 @@ export const RoutesList: React.FC = () => {
                         setPage(0);
                     }}
                     options={[
+                        { value: '', label: 'Wszystkie' },
                         { value: 'PLANNED', label: 'Zaplanowana' },
+                        { value: 'DRIVER_MISSING', label: 'Brak kierowcy' },
                         { value: 'IN_PROGRESS', label: 'W trakcie' },
                         { value: 'COMPLETED', label: 'Zakończona' },
                         { value: 'CANCELLED', label: 'Anulowana' },
@@ -264,10 +268,17 @@ export const RoutesList: React.FC = () => {
                                             </RouteInfo>
                                         </Table.Cell>
                                         <Table.Cell>
-                                            <MetaInfo>
-                                                <User size={16} />
-                                                {route.driver.firstName} {route.driver.lastName}
-                                            </MetaInfo>
+                                            {route.driver ? (
+                                                <MetaInfo>
+                                                    <User size={16} />
+                                                    {route.driver.firstName} {route.driver.lastName}
+                                                </MetaInfo>
+                                            ) : (
+                                                <MetaInfo style={{ color: '#f59e0b', fontStyle: 'italic' }}>
+                                                    <User size={16} />
+                                                    Nie przypisano
+                                                </MetaInfo>
+                                            )}
                                         </Table.Cell>
                                         <Table.Cell>
                                             <MetaInfo>

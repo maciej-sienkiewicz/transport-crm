@@ -52,7 +52,15 @@ export const SeriesInfoSection: React.FC<SeriesInfoSectionProps> = ({ series }) 
                             <User size={14} />
                             Kierowca
                         </InfoLabel>
-                        <InfoValue>{series.driverId || 'Nie przypisano'}</InfoValue>
+                        <InfoValue>
+                            {series.driverId ? ( // ← ZMIANA
+                                series.driverId
+                            ) : (
+                                <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>
+                                    Nie przypisano
+                                </span>
+                            )}
+                        </InfoValue>
                     </InfoItem>
                     <InfoItem>
                         <InfoLabel>
