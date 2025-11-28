@@ -1,14 +1,35 @@
 // src/features/guardians/components/GuardianChildren/GuardianChildren.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { ArrowRight, Star, User } from 'lucide-react';
+import { ArrowRight, Star, User, Plus } from 'lucide-react';
 import { GuardianChild } from '../../types';
 import { Badge } from '@/shared/ui/Badge';
+import { Button } from '@/shared/ui/Button';
+import { AddChildToGuardianModal, AddChildFormData } from '../AddChildToGuardianModal/AddChildToGuardianModal';
+import { useAddChildToGuardian } from '../../hooks/useAddChildToGuardian';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: ${({ theme }) => theme.spacing.lg};
+`;
+
+const Header = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.md};
+
+    @media (max-width: ${({ theme }) => theme.breakpoints.sm}) {
+        flex-direction: column;
+        align-items: stretch;
+    }
+`;
+
+const HeaderTitle = styled.h3`
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.slate[900]};
 `;
 
 const ChildrenGrid = styled.div`
@@ -115,10 +136,12 @@ const EmptyTitle = styled.h3`
 const EmptyText = styled.p`
     font-size: 0.9375rem;
     color: ${({ theme }) => theme.colors.slate[600]};
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
 `;
 
 interface GuardianChildrenProps {
     guardianId: string;
+    guardianName: string;
     children: GuardianChild[];
 }
 
@@ -136,9 +159,24 @@ const statusLabels: Record<string, string> = {
     TEMPORARY_INACTIVE: 'Czasowo nieaktywny',
 };
 
-export const GuardianChildren: React.FC<GuardianChildrenProps> = ({ guardianId, children }) => {
+export const GuardianChildren: React.FC<GuardianChildrenProps> = ({
+                                                                      guardianId,
+                                                                      guardianName,
+                                                                      children
+                                                                  }) => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const addChildMutation = useAddChildToGuardian();
+
     const handleChildClick = (childId: string) => {
         window.location.href = `/children/${childId}`;
+    };
+
+    const handleAddChild = async (data: AddChildFormData) => {
+        await addChildMutation.mutateAsync({
+            guardianId,
+            childData: data,
+        });
+        setIsModalOpen(false);
     };
 
     const getStatusVariant = (status: string) => {
@@ -154,51 +192,78 @@ export const GuardianChildren: React.FC<GuardianChildrenProps> = ({ guardianId, 
         }
     };
 
-    if (children.length === 0) {
-        return (
-            <Container>
+    return (
+        <Container>
+            <Header>
+                <HeaderTitle>
+                    Dzieci ({children.length})
+                </HeaderTitle>
+                <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setIsModalOpen(true)}
+                >
+                    <Plus size={16} />
+                    Dodaj dziecko
+                </Button>
+            </Header>
+
+            {children.length === 0 ? (
                 <EmptyState>
                     <EmptyIcon>
                         <User size={32} />
                     </EmptyIcon>
                     <EmptyTitle>Brak dzieci</EmptyTitle>
-                    <EmptyText>Ten opiekun nie ma jeszcze przypisanych dzieci</EmptyText>
+                    <EmptyText>
+                        Ten opiekun nie ma jeszcze przypisanych dzieci
+                    </EmptyText>
+                    <Button
+                        variant="primary"
+                        onClick={() => setIsModalOpen(true)}
+                    >
+                        <Plus size={16} />
+                        Dodaj pierwsze dziecko
+                    </Button>
                 </EmptyState>
-            </Container>
-        );
-    }
-
-    return (
-        <Container>
-            <ChildrenGrid>
-                {children.map((child) => (
-                    <ChildCard key={child.id} onClick={() => handleChildClick(child.id)}>
-                        <ChildHeader>
-                            <ChildInfo>
-                                <ChildName>
-                                    {child.firstName} {child.lastName}
-                                </ChildName>
-                                <ChildMeta>{child.age} lat</ChildMeta>
-                                <ChildMeta>{relationshipLabels[child.relationship]}</ChildMeta>
-                            </ChildInfo>
-                            <ViewButton>
-                                <ArrowRight size={16} />
-                            </ViewButton>
-                        </ChildHeader>
-                        <ChildBadges>
-                            {child.isPrimary && (
-                                <Badge variant="primary">
-                                    <Star size={12} />
-                                    Opiekun główny
+            ) : (
+                <ChildrenGrid>
+                    {children.map((child) => (
+                        <ChildCard key={child.id} onClick={() => handleChildClick(child.id)}>
+                            <ChildHeader>
+                                <ChildInfo>
+                                    <ChildName>
+                                        {child.firstName} {child.lastName}
+                                    </ChildName>
+                                    <ChildMeta>{child.age} lat</ChildMeta>
+                                    <ChildMeta>{relationshipLabels[child.relationship]}</ChildMeta>
+                                </ChildInfo>
+                                <ViewButton>
+                                    <ArrowRight size={16} />
+                                </ViewButton>
+                            </ChildHeader>
+                            <ChildBadges>
+                                {child.isPrimary && (
+                                    <Badge variant="primary">
+                                        <Star size={12} />
+                                        Opiekun główny
+                                    </Badge>
+                                )}
+                                <Badge variant={getStatusVariant(child.status)}>
+                                    {statusLabels[child.status]}
                                 </Badge>
-                            )}
-                            <Badge variant={getStatusVariant(child.status)}>
-                                {statusLabels[child.status]}
-                            </Badge>
-                        </ChildBadges>
-                    </ChildCard>
-                ))}
-            </ChildrenGrid>
+                            </ChildBadges>
+                        </ChildCard>
+                    ))}
+                </ChildrenGrid>
+            )}
+
+            <AddChildToGuardianModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSubmit={handleAddChild}
+                guardianName={guardianName}
+                isLoading={addChildMutation.isPending}
+            />
         </Container>
     );
 };

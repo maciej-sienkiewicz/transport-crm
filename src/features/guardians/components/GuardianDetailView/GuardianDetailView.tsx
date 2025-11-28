@@ -289,28 +289,19 @@ export const GuardianDetailView: React.FC<GuardianDetailViewProps> = ({
                                 <Button
                                     variant="primary"
                                     size="sm"
-                                    onClick={() => window.location.href = `tel:${guardian.phone}`}
                                 >
                                     <Phone size={14} />
-                                    Zadzwoń
+                                    {guardian.phone}
                                 </Button>
                                 {guardian.email && (
                                     <Button
                                         variant="secondary"
                                         size="sm"
-                                        onClick={() => window.location.href = `mailto:${guardian.email}`}
                                     >
                                         <Mail size={14} />
-                                        Wyślij email
+                                        {guardian.email}
                                     </Button>
                                 )}
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setActiveTab('contacts')}
-                                >
-                                    📞 Dodaj kontakt
-                                </Button>
                             </div>
                         </SidebarCard>
 

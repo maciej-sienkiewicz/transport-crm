@@ -96,6 +96,7 @@ export const GuardianDetailPage: React.FC<GuardianDetailPageProps> = ({ id }) =>
     return (
         <GuardianDetailView
             id={id}
+            phoneNumber={guardian?.phone}
             onEdit={() => setIsEditing(true)}
             onBack={handleBack}
         />
