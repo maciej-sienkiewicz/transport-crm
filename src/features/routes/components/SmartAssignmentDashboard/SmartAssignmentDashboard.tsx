@@ -12,7 +12,7 @@ import { UnassignedSchedulesList } from './UnassignedSchedulesList';
 import { RoutesTimeline } from './RoutesTimeline';
 import { RouteSuggestionsModal } from './RouteSuggestionsModal';
 import { ConfirmMapViewModal } from './ConfirmMapViewModal';
-import { UnassignedScheduleItem } from '../../types';
+import { UnassignedScheduleItem, RouteDetail } from '../../types';
 import {
     DashboardContainer,
     DashboardHeader,
@@ -44,6 +44,27 @@ export interface RoutePoint {
     isNew?: boolean;
 }
 
+// Funkcja pomocnicza do konwersji RouteDetail na RoutePoint[]
+const convertRouteToPoints = (route: RouteDetail): RoutePoint[] => {
+    return route.stops
+        .filter((stop) => !stop.isCancelled)
+        .sort((a, b) => a.stopOrder - b.stopOrder)
+        .map((stop) => ({
+            address: `${stop.address.street} ${stop.address.houseNumber}${
+                stop.address.apartmentNumber ? `/${stop.address.apartmentNumber}` : ''
+            }, ${stop.address.city}`,
+            lat: stop.address.latitude ?? null,
+            lng: stop.address.longitude ?? null,
+            type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
+            childName: `${stop.childFirstName} ${stop.childLastName}`,
+            order: stop.stopOrder,
+            hasCoordinates: stop.address.latitude != null && stop.address.longitude != null,
+            stopId: stop.id,
+            scheduleId: stop.scheduleId,
+            isNew: false,
+        }));
+};
+
 export const SmartAssignmentDashboard: React.FC = () => {
     const queryClient = useQueryClient();
     const [selectedDate, setSelectedDate] = useQueryParam('date', getTomorrowDate());
@@ -51,6 +72,9 @@ export const SmartAssignmentDashboard: React.FC = () => {
     const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
     const [assignedScheduleIds, setAssignedScheduleIds] = useState<Set<string>>(new Set());
     const [draggedScheduleId, setDraggedScheduleId] = useState<string | null>(null);
+
+    // State dla route ID, który chcemy załadować do mapy
+    const [pendingMapRouteId, setPendingMapRouteId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!isValidDateString(selectedDate)) {
@@ -90,55 +114,47 @@ export const SmartAssignmentDashboard: React.FC = () => {
         points: [],
     });
 
-    const [routeIdToFetch, setRouteIdToFetch] = useState<string | null>(null);
-
     const { data: unassignedData, isLoading: isLoadingSchedules } =
         useUnassignedSchedules(selectedDate);
+
     const { data: routesData, isLoading: isLoadingRoutes } = useRoutes({
         date: selectedDate,
         status: 'PLANNED',
         page: 0,
         size: 100,
     });
-    const { data: routeDataForMap, refetch: refetchRouteForMap } = useRoute(
-        routeIdToFetch || '',
-        { enabled: !!routeIdToFetch }
+
+    // Hook do ładowania trasy dla mapy - włączony TYLKO gdy mamy pendingMapRouteId
+    const {
+        data: routeForMap,
+        isLoading: isLoadingRouteForMap,
+        isSuccess: isRouteForMapLoaded
+    } = useRoute(
+        pendingMapRouteId || '',
+        { enabled: !!pendingMapRouteId }
     );
 
     const addScheduleToRoute = useAddScheduleToRoute();
     const reorderStops = useReorderStops();
 
+    // Effect: Gdy route się załaduje, otwórz modal z mapą
     useEffect(() => {
-        if (routeDataForMap && routeIdToFetch) {
-            const existingPoints: RoutePoint[] = routeDataForMap.stops
-                .filter((stop) => !stop.isCancelled)
-                .sort((a, b) => a.stopOrder - b.stopOrder)
-                .map((stop) => ({
-                    address: `${stop.address.street} ${stop.address.houseNumber}${
-                        stop.address.apartmentNumber ? `/${stop.address.apartmentNumber}` : ''
-                    }, ${stop.address.city}`,
-                    lat: stop.address.latitude ?? null,
-                    lng: stop.address.longitude ?? null,
-                    type: stop.stopType === 'PICKUP' ? ('pickup' as const) : ('dropoff' as const),
-                    childName: `${stop.childFirstName} ${stop.childLastName}`,
-                    order: stop.stopOrder,
-                    hasCoordinates:
-                        stop.address.latitude != null && stop.address.longitude != null,
-                    stopId: stop.id,
-                    scheduleId: stop.scheduleId,
-                    isNew: false,
-                }));
+        if (isRouteForMapLoaded && routeForMap && pendingMapRouteId) {
+            console.log('✅ Route załadowana, otwieranie mapy z', routeForMap.stops.length, 'stopami');
+
+            const points = convertRouteToPoints(routeForMap);
 
             setMapModalState({
                 isOpen: true,
-                routeId: routeIdToFetch,
-                routeName: routeDataForMap.routeName,
-                points: existingPoints,
+                routeId: routeForMap.id,
+                routeName: routeForMap.routeName,
+                points,
             });
 
-            setRouteIdToFetch(null);
+            // Wyczyść pending ID
+            setPendingMapRouteId(null);
         }
-    }, [routeDataForMap, routeIdToFetch]);
+    }, [isRouteForMapLoaded, routeForMap, pendingMapRouteId]);
 
     const filteredSchedules = useMemo(() => {
         if (!unassignedData?.schedules) return [];
@@ -158,7 +174,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
     }, [routesData]);
 
     const hasAnyRoutes = displayRoutes.length > 0;
-
     const hasSelectedSchedule = Boolean(selectedScheduleId);
 
     const handleAssignToRoute = useCallback(
@@ -193,6 +208,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 const pickupOrder = currentRoute.stopsCount + 1;
                 const dropoffOrder = currentRoute.stopsCount + 2;
 
+                // Wykonaj mutację
                 await addScheduleToRoute.mutateAsync({
                     routeId,
                     data: {
@@ -211,8 +227,8 @@ export const SmartAssignmentDashboard: React.FC = () => {
                     },
                 });
 
-                await queryClient.invalidateQueries({ queryKey: ['route', routeId] });
-                await queryClient.invalidateQueries({ queryKey: ['routes'] });
+                // Mutacja automatycznie invaliduje queries (dzięki onSuccess w hooku)
+                // Nie musimy ręcznie invalidować tutaj
 
                 toast.dismiss(toastId);
                 setSelectedScheduleId(null);
@@ -235,7 +251,7 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 throw error;
             }
         },
-        [unassignedData, routesData, addScheduleToRoute, queryClient]
+        [unassignedData, routesData, addScheduleToRoute]
     );
 
     const handleShowSuggestions = (schedule: UnassignedScheduleItem) => {
@@ -251,13 +267,17 @@ export const SmartAssignmentDashboard: React.FC = () => {
         setSuggestionsModalState({ isOpen: false, schedule: null });
     };
 
-    const handleViewMapFromConfirm = async () => {
+    const handleViewMapFromConfirm = () => {
         const routeId = confirmModalState.routeId;
 
         if (!routeId) {
+            console.error('❌ Brak routeId w confirmModalState');
             return;
         }
 
+        console.log('🗺️ Rozpoczynam ładowanie mapy dla trasy:', routeId);
+
+        // Zamknij modal potwierdzenia
         setConfirmModalState({
             isOpen: false,
             childName: '',
@@ -265,9 +285,11 @@ export const SmartAssignmentDashboard: React.FC = () => {
             routeId: null,
         });
 
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // Invaliduj cache dla tej konkretnej trasy aby wymusić świeże dane
+        queryClient.invalidateQueries({ queryKey: ['route', routeId] });
 
-        setRouteIdToFetch(routeId);
+        // Ustaw pending route ID - to włączy useRoute hook który pobierze świeże dane
+        setPendingMapRouteId(routeId);
     };
 
     const handleCloseConfirmModal = () => {
@@ -428,6 +450,28 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 onViewMap={handleViewMapFromConfirm}
                 onClose={handleCloseConfirmModal}
             />
+
+            {/* Pokaż loading podczas ładowania danych dla mapy */}
+            {isLoadingRouteForMap && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 9999,
+                }}>
+                    <div style={{
+                        background: 'white',
+                        padding: '2rem',
+                        borderRadius: '1rem',
+                        boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                    }}>
+                        Ładowanie mapy trasy...
+                    </div>
+                </div>
+            )}
 
             {mapModalState.isOpen && (
                 <RouteMapModal

@@ -118,7 +118,7 @@ export const StopContextMenu: React.FC<StopContextMenuProps> = ({
             </ContextMenuItem>
             <ContextMenuItem $danger onClick={onDelete}>
                 <Trash2 size={16} />
-                Usuń z trasy
+                Usuń dziecko z trasy
             </ContextMenuItem>
         </ContextMenuContainer>
     );
