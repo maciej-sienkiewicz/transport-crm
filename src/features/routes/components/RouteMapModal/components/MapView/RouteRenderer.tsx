@@ -1,4 +1,3 @@
-// src/features/routes/components/RouteMapModal/components/MapView/RouteRenderer.tsx
 import React, { useEffect, useRef } from 'react';
 import { useMap } from '@vis.gl/react-google-maps';
 import { RoutePoint } from '../../utils/types';
@@ -20,21 +19,10 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
     const polylineRef = useRef<google.maps.Polyline | null>(null);
     const hasInitializedRef = useRef(false);
 
-    // Inicjalizacja markerów - TYLKO RAZ!
     useEffect(() => {
         if (!map || !window.google || hasInitializedRef.current) return;
 
-        console.log('🎯 Tworzenie markerów (tylko raz!)');
-
-        points.forEach((point, pointIndex) => {
-            console.log(`🔍 Tworzę marker ${pointIndex}:`, {
-                stopId: point.stopId,
-                scheduleId: point.scheduleId,
-                childName: point.childName,
-                order: point.order,
-                hasCoordinates: point.hasCoordinates,
-            });
-
+        points.forEach((point) => {
             const childIndex = originalChildIndexMap[point.childName] ?? 0;
             const letter = String.fromCharCode(65 + childIndex);
             const number = point.type === 'pickup' ? '1' : '2';
@@ -78,23 +66,12 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
                 zIndex: point.isNew ? 2000 : 1000,
             });
 
-            // Zapisz punkt w Map (bezpieczniejsze niż na obiekcie)
             markerDataMap.current.set(marker, { ...point });
 
-            // OBSŁUGA KLIKNIĘCIA W MARKER
             marker.addListener('click', () => {
                 const pointData = markerDataMap.current.get(marker);
 
-                console.log('🖱️ Kliknięto marker:', {
-                    stopId: pointData?.stopId,
-                    scheduleId: pointData?.scheduleId,
-                    childName: pointData?.childName,
-                    order: pointData?.order,
-                    type: pointData?.type,
-                });
-
                 if (!pointData || !onMarkerClick) {
-                    console.error('❌ Brak danych punktu lub handlera!');
                     return;
                 }
 
@@ -104,7 +81,6 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
                 const screenX = bounds.left + bounds.width / 2;
                 const screenY = bounds.top + bounds.height / 2 - 100;
 
-                console.log('📍 Wywołuję onMarkerClick z pointData:', pointData);
                 onMarkerClick(pointData, { x: screenX, y: screenY });
             });
 
@@ -112,10 +88,8 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
         });
 
         hasInitializedRef.current = true;
-        console.log(`📍 Utworzono ${markersRef.current.length} markerów`);
 
         return () => {
-            console.log('🧹 Czyszczenie markerów');
             markersRef.current.forEach(marker => {
                 google.maps.event.clearInstanceListeners(marker);
                 marker.setMap(null);
@@ -126,21 +100,16 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
         };
     }, [map, onMarkerClick, points, originalChildIndexMap]);
 
-    // Aktualizacja numerów na markerach gdy zmieni się kolejność punktów
     useEffect(() => {
         if (!map || !window.google || !hasInitializedRef.current) return;
         if (markersRef.current.length !== points.length) return;
 
-        console.log('🔄 Aktualizacja numerów na markerach, points:', points.length);
-
         points.forEach((point, index) => {
             const marker = markersRef.current[index];
             if (!marker) {
-                console.warn(`⚠️ Brak markera dla indeksu ${index}`);
                 return;
             }
 
-            // Zaktualizuj dane punktu w Map
             markerDataMap.current.set(marker, { ...point });
 
             const childIndex = originalChildIndexMap[point.childName] ?? 0;
@@ -179,11 +148,8 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
                 point.isNew ? ' (NOWY)' : ''
             }\nKliknij aby zmienić kolejność\nAktualnie: pozycja ${point.order}`);
         });
-
-        console.log('✅ Zaktualizowano numery na markerach');
     }, [points, originalChildIndexMap, map]);
 
-    // Aktualizacja trasy
     useEffect(() => {
         if (!map || !window.google || !hasInitializedRef.current) return;
 
@@ -198,8 +164,6 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
             }
             return;
         }
-
-        console.log('🛣️ Aktualizacja trasy');
 
         const directionsService = new google.maps.DirectionsService();
         const waypoints = validPoints.slice(1, -1).map((point) => ({
@@ -233,19 +197,6 @@ export const RouteRenderer: React.FC<RouteRendererProps> = ({
                         strokeWeight: 5,
                         map: map,
                     });
-
-                    let totalDistance = 0;
-                    let totalDuration = 0;
-                    result.routes[0].legs.forEach((leg) => {
-                        totalDistance += leg.distance?.value || 0;
-                        totalDuration += leg.duration?.value || 0;
-                    });
-
-                    console.log(
-                        `🗺️ Trasa: ${(totalDistance / 1000).toFixed(1)} km, ${Math.round(
-                            totalDuration / 60
-                        )} min`
-                    );
                 }
             }
         );

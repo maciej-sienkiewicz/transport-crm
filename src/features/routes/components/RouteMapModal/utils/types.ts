@@ -1,4 +1,3 @@
-// src/features/routes/components/RouteMapModal/utils/types.ts
 export interface RoutePoint {
     address: string;
     lat: number | null;

@@ -1,4 +1,3 @@
-// src/features/routes/components/SmartAssignmentDashboard/SmartAssignmentDashboard.tsx
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -28,6 +27,7 @@ import {
 } from './SmartAssignmentDashboard.styles';
 import { useUnassignedSchedules } from '@/features/routes/api/useUnassignedSchedules.ts';
 import {RouteMapModal} from "@/features/routes/components/RouteMapModal/RouteMapModal.tsx";
+import { useQueryClient } from '@tanstack/react-query';
 
 const API_KEY = 'AIzaSyAr0qHze3moiMPHo-cwv171b8luH-anyXA';
 
@@ -45,22 +45,19 @@ export interface RoutePoint {
 }
 
 export const SmartAssignmentDashboard: React.FC = () => {
-    // Użyj hooka do synchronizacji daty z URL
+    const queryClient = useQueryClient();
     const [selectedDate, setSelectedDate] = useQueryParam('date', getTomorrowDate());
 
     const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
     const [assignedScheduleIds, setAssignedScheduleIds] = useState<Set<string>>(new Set());
     const [draggedScheduleId, setDraggedScheduleId] = useState<string | null>(null);
 
-    // Walidacja daty z URL
     useEffect(() => {
         if (!isValidDateString(selectedDate)) {
-            console.warn('⚠️ Nieprawidłowa data w URL, ustawiam domyślną');
             setSelectedDate(getTomorrowDate());
         }
     }, [selectedDate, setSelectedDate]);
 
-    // Stany dla modali
     const [suggestionsModalState, setSuggestionsModalState] = useState<{
         isOpen: boolean;
         schedule: UnassignedScheduleItem | null;
@@ -103,18 +100,16 @@ export const SmartAssignmentDashboard: React.FC = () => {
         page: 0,
         size: 100,
     });
-    const { data: routeDataForMap } = useRoute(
-        routeIdToFetch || ''
+    const { data: routeDataForMap, refetch: refetchRouteForMap } = useRoute(
+        routeIdToFetch || '',
+        { enabled: !!routeIdToFetch }
     );
 
     const addScheduleToRoute = useAddScheduleToRoute();
     const reorderStops = useReorderStops();
 
-    // Gdy dane trasy są gotowe dla mapy edycji
     useEffect(() => {
         if (routeDataForMap && routeIdToFetch) {
-            console.log('📍 Dane trasy pobrane, przygotowuję punkty dla mapy edycji');
-
             const existingPoints: RoutePoint[] = routeDataForMap.stops
                 .filter((stop) => !stop.isCancelled)
                 .sort((a, b) => a.stopOrder - b.stopOrder)
@@ -134,8 +129,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
                     isNew: false,
                 }));
 
-            console.log('✅ Otwieram modal edycji z', existingPoints.length, 'punktami');
-
             setMapModalState({
                 isOpen: true,
                 routeId: routeIdToFetch,
@@ -147,13 +140,11 @@ export const SmartAssignmentDashboard: React.FC = () => {
         }
     }, [routeDataForMap, routeIdToFetch]);
 
-    // Filtrowane harmonogramy
     const filteredSchedules = useMemo(() => {
         if (!unassignedData?.schedules) return [];
         return unassignedData.schedules.filter((s) => !assignedScheduleIds.has(s.scheduleId));
     }, [unassignedData, assignedScheduleIds]);
 
-    // Dane wybranego harmonogramu
     const selectedScheduleData = useMemo(() => {
         if (!selectedScheduleId || !unassignedData?.schedules) return null;
         return (
@@ -161,27 +152,21 @@ export const SmartAssignmentDashboard: React.FC = () => {
         );
     }, [selectedScheduleId, unassignedData]);
 
-    // Wszystkie trasy
     const displayRoutes = useMemo(() => {
         if (!routesData?.content) return [];
         return routesData.content;
     }, [routesData]);
 
-    // Czy są jakiekolwiek trasy
     const hasAnyRoutes = displayRoutes.length > 0;
 
     const hasSelectedSchedule = Boolean(selectedScheduleId);
 
-    // Handler przypisywania
     const handleAssignToRoute = useCallback(
         async (scheduleId: string, routeId: string) => {
             const schedule = unassignedData?.schedules.find((s) => s.scheduleId === scheduleId);
             if (!schedule) {
-                console.error('❌ Nie znaleziono harmonogramu:', scheduleId);
                 return;
             }
-
-            console.log('📝 Przypisuję harmonogram do trasy:', { scheduleId, routeId });
 
             setAssignedScheduleIds((prev) => new Set(prev).add(scheduleId));
 
@@ -193,7 +178,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
                     throw new Error('Nie znaleziono trasy');
                 }
 
-                // Sprawdź pojemność
                 const capacityUsed = currentRoute.stopsCount / 2;
                 if (capacityUsed >= 10) {
                     toast.dismiss(toastId);
@@ -208,8 +192,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
 
                 const pickupOrder = currentRoute.stopsCount + 1;
                 const dropoffOrder = currentRoute.stopsCount + 2;
-
-                console.log('📤 Przypisuję dziecko na koniec:', { pickupOrder, dropoffOrder });
 
                 await addScheduleToRoute.mutateAsync({
                     routeId,
@@ -229,20 +211,19 @@ export const SmartAssignmentDashboard: React.FC = () => {
                     },
                 });
 
+                await queryClient.invalidateQueries({ queryKey: ['route', routeId] });
+                await queryClient.invalidateQueries({ queryKey: ['routes'] });
+
                 toast.dismiss(toastId);
                 setSelectedScheduleId(null);
 
-                // Pokaż modal potwierdzenia
                 setConfirmModalState({
                     isOpen: true,
                     childName: `${schedule.childFirstName} ${schedule.childLastName}`,
                     routeName: currentRoute.routeName,
                     routeId: routeId,
                 });
-
-                console.log('✅ Dziecko przypisane');
             } catch (error) {
-                console.error('❌ Błąd przypisywania:', error);
                 toast.dismiss();
 
                 setAssignedScheduleIds((prev) => {
@@ -254,10 +235,9 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 throw error;
             }
         },
-        [unassignedData, routesData, addScheduleToRoute]
+        [unassignedData, routesData, addScheduleToRoute, queryClient]
     );
 
-    // Handler wyświetlenia sugestii
     const handleShowSuggestions = (schedule: UnassignedScheduleItem) => {
         setSuggestionsModalState({
             isOpen: true,
@@ -265,23 +245,18 @@ export const SmartAssignmentDashboard: React.FC = () => {
         });
     };
 
-    // Handler wyboru trasy z sugestii
     const handleSelectSuggestion = async (routeId: string) => {
         if (!suggestionsModalState.schedule) return;
         await handleAssignToRoute(suggestionsModalState.schedule.scheduleId, routeId);
         setSuggestionsModalState({ isOpen: false, schedule: null });
     };
 
-    // Handler otwarcia mapy edycji
-    const handleViewMapFromConfirm = () => {
+    const handleViewMapFromConfirm = async () => {
         const routeId = confirmModalState.routeId;
 
         if (!routeId) {
-            console.error('❌ Brak routeId w confirmModalState');
             return;
         }
-
-        console.log('🗺️ Użytkownik chce zobaczyć mapę dla trasy:', routeId);
 
         setConfirmModalState({
             isOpen: false,
@@ -290,11 +265,12 @@ export const SmartAssignmentDashboard: React.FC = () => {
             routeId: null,
         });
 
+        await new Promise(resolve => setTimeout(resolve, 300));
+
         setRouteIdToFetch(routeId);
     };
 
     const handleCloseConfirmModal = () => {
-        console.log('🚪 Zamykanie modala potwierdzenia');
         setConfirmModalState({
             isOpen: false,
             childName: '',
@@ -307,23 +283,18 @@ export const SmartAssignmentDashboard: React.FC = () => {
         const routeId = mapModalState.routeId;
 
         if (!routeId) {
-            console.error('❌ Brak routeId w mapModalState');
             return;
         }
-
-        console.log('💾 Zapisywanie nowej kolejności z mapy:', newPoints.length, 'punktów');
 
         try {
             const toastId = toast.loading('Zapisywanie nowej kolejności...');
 
             const stopOrders = newPoints
                 .filter((p) => !p.stopId.startsWith('temp-'))
-                .map((p) => ({
+                .map((p, index) => ({
                     stopId: p.stopId,
-                    newOrder: p.order,
+                    newOrder: index + 1,
                 }));
-
-            console.log('📤 StopOrders do wysłania:', stopOrders);
 
             if (stopOrders.length === 0) {
                 throw new Error('Brak stopów do zaktualizowania');
@@ -337,8 +308,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
             toast.dismiss(toastId);
             toast.success('Kolejność stopów została zaktualizowana');
 
-            console.log('✅ Kolejność zapisana pomyślnie');
-
             setMapModalState({
                 isOpen: false,
                 routeId: null,
@@ -346,13 +315,11 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 points: [],
             });
         } catch (error) {
-            console.error('❌ Błąd podczas zapisywania kolejności:', error);
             toast.error('Nie udało się zapisać nowej kolejności');
         }
     };
 
     const handleCloseMapModal = () => {
-        console.log('🚪 Zamykanie modala mapy');
         setMapModalState({
             isOpen: false,
             routeId: null,
@@ -361,27 +328,21 @@ export const SmartAssignmentDashboard: React.FC = () => {
         });
     };
 
-    // Drag & Drop handlers
     const handleDragStart = (scheduleId: string) => {
         setDraggedScheduleId(scheduleId);
-        console.log('🎯 Rozpoczęto przeciąganie:', scheduleId);
     };
 
     const handleDragEnd = () => {
         setDraggedScheduleId(null);
-        console.log('🎯 Zakończono przeciąganie');
     };
 
     const handleDrop = async (routeId: string) => {
         if (!draggedScheduleId) return;
 
-        console.log('🎯 Upuszczono na trasę:', { draggedScheduleId, routeId });
-
         await handleAssignToRoute(draggedScheduleId, routeId);
         setDraggedScheduleId(null);
     };
 
-    // Reset przy zmianie daty
     React.useEffect(() => {
         setAssignedScheduleIds(new Set());
         setSelectedScheduleId(null);
@@ -444,7 +405,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 </RightPanel>
             </DashboardBody>
 
-            {/* Modal z sugestiami tras */}
             {suggestionsModalState.isOpen && suggestionsModalState.schedule && (
                 <RouteSuggestionsModal
                     isOpen={suggestionsModalState.isOpen}
@@ -461,7 +421,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 />
             )}
 
-            {/* Modal potwierdzenia z opcją podglądu mapy */}
             <ConfirmMapViewModal
                 isOpen={confirmModalState.isOpen}
                 childName={confirmModalState.childName}
@@ -470,7 +429,6 @@ export const SmartAssignmentDashboard: React.FC = () => {
                 onClose={handleCloseConfirmModal}
             />
 
-            {/* Modal z mapą do edycji kolejności */}
             {mapModalState.isOpen && (
                 <RouteMapModal
                     isOpen={mapModalState.isOpen}

@@ -1,4 +1,3 @@
-// src/features/routes/components/RouteMapModal/hooks/usePointsReorder.ts
 import { useState, useCallback } from 'react';
 import { RoutePoint } from '../utils/types';
 
@@ -53,35 +52,19 @@ export const usePointsReorder = (initialPoints: RoutePoint[]) => {
     }, []);
 
     const movePointToOrder = useCallback((stopId: string, newOrderNumber: number) => {
-        console.log(`🔄 movePointToOrder wywołane: stopId=${stopId}, newOrder=${newOrderNumber}`);
-
         setEditedPoints(prev => {
             const currentIndex = prev.findIndex(p => p.stopId === stopId);
 
             if (currentIndex === -1) {
-                console.error('❌ Nie znaleziono punktu o stopId:', stopId);
-                console.log('📋 Dostępne punkty:', prev.map((p, i) => ({
-                    index: i,
-                    stopId: p.stopId,
-                    childName: p.childName,
-                    type: p.type,
-                    order: p.order,
-                })));
                 return prev;
             }
 
             const targetOrder = Math.max(1, Math.min(newOrderNumber, prev.length));
             const targetIndex = targetOrder - 1;
 
-            console.log(`📊 currentIndex: ${currentIndex}, targetIndex: ${targetIndex}`);
-            console.log(`📊 current order: ${prev[currentIndex].order}, target order: ${targetOrder}`);
-
             if (currentIndex === targetIndex) {
-                console.log('⚠️ Punkt już jest na tej pozycji (indeks się nie zmienia)');
                 return prev;
             }
-
-            console.log(`✅ Przenoszę punkt z indeksu ${currentIndex} na ${targetIndex}`);
 
             const newPoints = [...prev];
             const [movedPoint] = newPoints.splice(currentIndex, 1);
@@ -91,8 +74,6 @@ export const usePointsReorder = (initialPoints: RoutePoint[]) => {
                 point.order = idx + 1;
             });
 
-            console.log('📋 Nowa kolejność:', newPoints.map(p => `${p.childName}(${p.type}): order=${p.order}`));
-
             return newPoints;
         });
 
@@ -101,7 +82,6 @@ export const usePointsReorder = (initialPoints: RoutePoint[]) => {
     }, []);
 
     const refreshMap = useCallback(() => {
-        console.log('🔄 refreshMap - kopiuję editedPoints do displayedPoints');
         setDisplayedPoints([...editedPoints]);
         setNeedsRefresh(false);
     }, [editedPoints]);

@@ -1,5 +1,3 @@
-// src/features/routes/hooks/useRouteDetailLogic.ts
-
 import {
     useCallback,
     useMemo,
@@ -19,7 +17,7 @@ export const statusLabels: Record<RouteStatus, string> = {
     IN_PROGRESS: 'W trakcie',
     COMPLETED: 'Zakończona',
     CANCELLED: 'Anulowana',
-    DRIVER_MISSING: 'Brak kierowcy', // ← DODANE
+    DRIVER_MISSING: 'Brak kierowcy',
 };
 
 export const statusVariants: Record<
@@ -56,7 +54,6 @@ export const useRouteDetailLogic = (id: string) => {
     const deleteRoute = useDeleteRoute();
     const reorderStops = useReorderStops();
 
-    // Domyślna zakładka: jeśli trasa należy do serii, pokaż zakładkę "series"
     const getInitialTab = (): ActiveTab => {
         if (route?.seriesId) {
             return 'series';
@@ -72,7 +69,6 @@ export const useRouteDetailLogic = (id: string) => {
     const stopRefs = useRef<Record<string, HTMLDivElement | null>>({});
     const [isCreateSeriesModalOpen, setIsCreateSeriesModalOpen] = useState(false);
 
-    // Ustaw zakładkę "series" jako domyślną, gdy trasa się załaduje i należy do serii
     useEffect(() => {
         if (route?.seriesId && activeTab === 'info') {
             setActiveTab('series');
@@ -123,7 +119,7 @@ export const useRouteDetailLogic = (id: string) => {
     const getMapPoints = useCallback((): RoutePoint[] => {
         if (!route?.stops) return [];
 
-        return sortedStops.map((stop, index) => {
+        return sortedStops.map((stop) => {
             const point: RoutePoint = {
                 address: `${stop.address.street} ${stop.address.houseNumber}, ${stop.address.city}`,
                 lat: stop.address.latitude ?? null,
@@ -150,7 +146,7 @@ export const useRouteDetailLogic = (id: string) => {
     }, [getMapPoints]);
 
     const handleDriverClick = () => {
-        if (route?.driver.id) {
+        if (route?.driver?.id) {
             window.location.href = `/drivers/${route.driver.id}`;
         }
     };
