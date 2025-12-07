@@ -1,4 +1,3 @@
-// src/features/drivers/api/driversApi.ts
 import { apiClient } from '@/shared/api/client';
 import { PaginationParams, PageableResponse } from '@/shared/types/api';
 import {
@@ -19,9 +18,14 @@ import {
     Document,
     DocumentType,
     UploadUrlResponse,
-    DocumentUploadResult, AvailableDriverListItem,
+    DocumentUploadResult,
+    AvailableDriverListItem,
+    UnlockAccountResponse,
+    ResetPasswordResponse,
+    SuspendAccountResponse,
+    UnsuspendAccountResponse,
 } from '../types';
-import {CreateDriverAbsenceResponse} from "@/shared/types/routeImpact.ts";
+import { CreateDriverAbsenceResponse } from "@/shared/types/routeImpact.ts";
 
 interface GetDriversParams extends PaginationParams {
     status?: DriverStatus;
@@ -29,10 +33,6 @@ interface GetDriversParams extends PaginationParams {
 }
 
 export const driversApi = {
-    // ============================================
-    // DRIVERS CRUD
-    // ============================================
-
     getAll: async (params: GetDriversParams): Promise<PageableResponse<DriverListItem>> => {
         const response = await apiClient.get<PageableResponse<DriverListItem>>('/drivers', {
             params: {
@@ -50,7 +50,6 @@ export const driversApi = {
         const response = await apiClient.get<Driver>(`/drivers/${id}`);
         const driver = response.data;
 
-        // TODO: Remove mock data when API is ready
         const driverDetail: DriverDetail = {
             ...driver,
             stats: {
@@ -95,10 +94,6 @@ export const driversApi = {
         await apiClient.delete(`/drivers/${id}`);
     },
 
-    // ============================================
-    // NOTES
-    // ============================================
-
     getNotes: async (driverId: string): Promise<DriverNote[]> => {
         interface DriverNoteListResponse {
             notes: DriverNote[];
@@ -130,10 +125,6 @@ export const driversApi = {
     deleteNote: async (driverId: string, noteId: string): Promise<void> => {
         await apiClient.delete(`/drivers/${driverId}/notes/${noteId}`);
     },
-
-    // ============================================
-    // PLANNED ROUTES
-    // ============================================
 
     getPlannedRoutes: async (driverId: string, date?: string): Promise<PlannedRoute[]> => {
         interface BackendPlannedRoute {
@@ -187,10 +178,6 @@ export const driversApi = {
         });
     },
 
-    // ============================================
-    // ROUTE HISTORY
-    // ============================================
-
     getRouteHistory: async (
         driverId: string,
         params: { page: number; size: number; startDate?: string; endDate?: string }
@@ -201,10 +188,6 @@ export const driversApi = {
         );
         return response.data;
     },
-
-    // ============================================
-    // ABSENCES
-    // ============================================
 
     getAbsences: async (driverId: string): Promise<DriverAbsence[]> => {
         const response = await apiClient.get<DriverAbsencesResponse>(
@@ -232,13 +215,6 @@ export const driversApi = {
         await apiClient.post(`/drivers/${driverId}/absences/${absenceId}/cancel`, data);
     },
 
-    // ============================================
-    // DOCUMENTS - PRESIGNED URL FLOW
-    // ============================================
-
-    /**
-     * Step 1: Get presigned upload URL from backend
-     */
     getDocumentUploadUrl: async (
         driverId: string,
         fileName: string,
@@ -261,9 +237,6 @@ export const driversApi = {
         return response.data;
     },
 
-    /**
-     * Step 2: Upload file directly to S3 using presigned URL
-     */
     uploadToS3: async (presignedUrl: string, file: File): Promise<void> => {
         const response = await fetch(presignedUrl, {
             method: 'PUT',
@@ -278,9 +251,6 @@ export const driversApi = {
         }
     },
 
-    /**
-     * Step 3: Confirm upload and save metadata in database
-     */
     confirmDocumentUpload: async (
         driverId: string,
         fileName: string,
@@ -293,7 +263,6 @@ export const driversApi = {
         const response = await apiClient.post<DocumentUploadResult>(
             `/drivers/${driverId}/documents`,
             {
-                // ✅ Nie wysyłamy entityType i entityId - backend je ustawi
                 documentType,
                 fileName,
                 fileSize,
@@ -305,9 +274,6 @@ export const driversApi = {
         return response.data;
     },
 
-    /**
-     * Get all documents for a driver
-     */
     getDocuments: async (driverId: string): Promise<Document[]> => {
         const response = await apiClient.get<{ documents: Document[]; totalCount: number }>(
             `/drivers/${driverId}/documents`
@@ -315,9 +281,6 @@ export const driversApi = {
         return response.data.documents;
     },
 
-    /**
-     * Get presigned URL for viewing/downloading a document
-     */
     getDocumentViewUrl: async (
         documentId: string
     ): Promise<{ viewUrl: string; expiresIn: number }> => {
@@ -327,23 +290,11 @@ export const driversApi = {
         return response.data;
     },
 
-    /**
-     * Delete a document (removes from both S3 and database)
-     */
     deleteDocument: async (documentId: string): Promise<void> => {
         await apiClient.delete(`/documents/${documentId}`);
     },
 
-    // ============================================
-    // CEPIK (TODO: Implement when API is ready)
-    // ============================================
-
     getCEPIKHistory: async (driverId: string): Promise<CEPIKCheck[]> => {
-        // TODO: Implement when API is ready
-        // const response = await apiClient.get<CEPIKCheck[]>(`/drivers/${driverId}/cepik-history`);
-        // return response.data;
-
-        // MOCK DATA
         return Promise.resolve([
             {
                 id: 'cepik-1',
@@ -366,6 +317,34 @@ export const driversApi = {
             {
                 params: { date },
             }
+        );
+        return response.data;
+    },
+
+    unlockAccount: async (driverId: string): Promise<UnlockAccountResponse> => {
+        const response = await apiClient.post<UnlockAccountResponse>(
+            `/drivers/${driverId}/unlock`
+        );
+        return response.data;
+    },
+
+    resetPassword: async (driverId: string): Promise<ResetPasswordResponse> => {
+        const response = await apiClient.post<ResetPasswordResponse>(
+            `/drivers/${driverId}/reset-password`
+        );
+        return response.data;
+    },
+
+    suspendAccount: async (driverId: string): Promise<SuspendAccountResponse> => {
+        const response = await apiClient.post<SuspendAccountResponse>(
+            `/drivers/${driverId}/suspend`
+        );
+        return response.data;
+    },
+
+    unsuspendAccount: async (driverId: string): Promise<UnsuspendAccountResponse> => {
+        const response = await apiClient.post<UnsuspendAccountResponse>(
+            `/drivers/${driverId}/unsuspend`
         );
         return response.data;
     },

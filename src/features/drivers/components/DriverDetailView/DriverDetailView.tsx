@@ -1,4 +1,3 @@
-// src/features/drivers/components/DriverDetailView/DriverDetailView.tsx
 import React, { useState } from 'react';
 import { ArrowLeft, Edit2, Trash2, User, Calendar, Phone, Mail, FileText, Clock } from 'lucide-react';
 import { useDriverDetail } from '../../hooks/useDriverDetail';
@@ -13,6 +12,7 @@ import { StatusDocumentsTab } from '../StatusDocumentsTab';
 import { PlannedRoutesTab } from '../PlannedRoutesTab';
 import { RouteHistoryTab } from '../RouteHistoryTab';
 import { NotesTab } from '../NotesTab';
+import { DriverAccountTab } from '../DriverAccountTab';
 import {
     PageContainer,
     DetailHeader,
@@ -55,7 +55,7 @@ import {
     TabContent,
 } from './DriverDetailView.styles';
 import { AlertTriangle, Check, X } from 'lucide-react';
-import {DriverActivityHistory} from "@/features/drivers/components/DriverActivityHistory";
+import { DriverActivityHistory } from "@/features/drivers/components/DriverActivityHistory";
 import {
     DetailRow,
     DocumentCard,
@@ -65,7 +65,7 @@ import {
     DocumentSubtitle,
     DocumentTitle
 } from "@/features/drivers/components/StatusDocumentsTab/StatusDocumentsTab.styles.ts";
-import {DriverAbsencesTab} from "@/features/drivers/components/DriverAbsencesTab";
+import { DriverAbsencesTab } from "@/features/drivers/components/DriverAbsencesTab";
 
 interface DriverDetailViewProps {
     id: string;
@@ -73,7 +73,7 @@ interface DriverDetailViewProps {
     onBack: () => void;
 }
 
-type TabType = 'status' | 'planned' | 'history' | 'absences' | 'notes' | 'activity';
+type TabType = 'status' | 'planned' | 'history' | 'absences' | 'notes' | 'activity' | 'account';
 
 export const DriverDetailView: React.FC<DriverDetailViewProps> = ({ id, onEdit, onBack }) => {
     const [activeTab, setActiveTab] = useState<TabType>('status');
@@ -185,7 +185,6 @@ export const DriverDetailView: React.FC<DriverDetailViewProps> = ({ id, onEdit, 
         return 'valid';
     };
 
-    // Mock recent activity
     const mockRecentActivity = [
         {
             id: '1',
@@ -357,7 +356,7 @@ export const DriverDetailView: React.FC<DriverDetailViewProps> = ({ id, onEdit, 
                                     {nextRoute.childrenCount} dzieci
                                 </DetailRow>
                                 <DetailRow>
-                                    {nextRoute.startLocation} → {nextRoute.endLocation}
+                                    {nextRoute.firstStopAddress} → {nextRoute.endLocation}
                                 </DetailRow>
                             </DocumentDetails>
                         ) : (
@@ -388,6 +387,9 @@ export const DriverDetailView: React.FC<DriverDetailViewProps> = ({ id, onEdit, 
                             <Tab $active={activeTab === 'notes'} onClick={() => setActiveTab('notes')}>
                                 📝 Notatki
                             </Tab>
+                            <Tab $active={activeTab === 'account'} onClick={() => setActiveTab('account')}>
+                                🔐 Konto kierowcy
+                            </Tab>
                             <Tab $active={activeTab === 'activity'} onClick={() => setActiveTab('activity')}>
                                 🕐 Historia aktywności
                             </Tab>
@@ -399,6 +401,7 @@ export const DriverDetailView: React.FC<DriverDetailViewProps> = ({ id, onEdit, 
                             {activeTab === 'history' && <RouteHistoryTab driverId={id} />}
                             {activeTab === 'absences' && <DriverAbsencesTab driverId={id} />}
                             {activeTab === 'notes' && <NotesTab driverId={id} />}
+                            {activeTab === 'account' && <DriverAccountTab driverId={id} />}
                             {activeTab === 'activity' && <DriverActivityHistory driverId={id} />}
                         </TabContent>
                     </TabsContainer>

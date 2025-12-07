@@ -1,7 +1,27 @@
-// src/features/drivers/types.ts - ROZSZERZENIE
 import { Address } from '@/shared/types/api';
 
 export type DriverStatus = 'ACTIVE' | 'INACTIVE' | 'ON_LEAVE';
+
+export type AccountStatus =
+    | 'PENDING_ACTIVATION'
+    | 'ACTIVE'
+    | 'LOCKED'
+    | 'SUSPENDED';
+
+export interface DriverAuthStatus {
+    accountStatus: AccountStatus;
+    accountStatusDisplay: string;
+    failedLoginAttempts: number;
+    lastFailedLoginAt?: string;
+    lockedAt?: string;
+    lockedUntil?: string;
+    isCurrentlyLocked: boolean;
+    activatedAt?: string;
+    passwordChangedAt?: string;
+    hasCredentials: boolean;
+    canLogin: boolean;
+    requiresActivation: boolean;
+}
 
 export interface DrivingLicense {
     licenseNumber: string;
@@ -106,6 +126,7 @@ export interface Driver {
     drivingLicense: DrivingLicense;
     medicalCertificate: MedicalCertificate;
     status: DriverStatus;
+    authStatus?: DriverAuthStatus;
     createdAt: string;
     updatedAt: string;
 }
@@ -169,7 +190,6 @@ export interface UpdateDriverRequest {
     };
 }
 
-// src/features/drivers/types.ts - dodaj na końcu
 export type DriverAbsenceType = 'SICK_LEAVE' | 'VACATION' | 'PERSONAL_LEAVE' | 'UNPAID_LEAVE' | 'OTHER';
 export type DriverAbsenceStatus = 'PLANNED' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
 
@@ -201,8 +221,6 @@ export interface DriverAbsencesResponse {
     absences: DriverAbsence[];
     totalCount: number;
 }
-
-// src/features/drivers/types.ts
 
 export type DocumentType =
     | 'DRIVER_CONTRACT'
@@ -254,4 +272,21 @@ export interface AvailableDriverListItem {
         estimatedStartTime: string;
         estimatedEndTime: string;
     }[];
+}
+
+export interface UnlockAccountResponse {
+    message: string;
+}
+
+export interface ResetPasswordResponse {
+    message: string;
+    newPin: string;
+}
+
+export interface SuspendAccountResponse {
+    message: string;
+}
+
+export interface UnsuspendAccountResponse {
+    message: string;
 }

@@ -243,7 +243,7 @@ Zostaną usunięte oba punkty (odbiór i dowóz).`
         return <LoadingSpinner />;
     }
 
-    const showActionButtons = route.status === 'PLANNED';
+    const showActionButtons = route.status === 'PLANNED' || route.status === 'IN_PROGRESS';
 
     const formattedDate = new Date(route.date).toLocaleDateString('pl-PL', {
         day: '2-digit',
