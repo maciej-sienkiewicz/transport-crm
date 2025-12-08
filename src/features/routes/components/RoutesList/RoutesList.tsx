@@ -1,7 +1,5 @@
-// src/features/routes/components/RoutesList/RoutesList.tsx
-
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { useRoutes } from '../../hooks/useRoutes';
 import { Input } from '@/shared/ui/Input';
 import { Select } from '@/shared/ui/Select';
@@ -9,7 +7,7 @@ import { Table } from '@/shared/ui/Table';
 import { Badge } from '@/shared/ui/Badge';
 import { LoadingSpinner } from '@/shared/ui/LoadingSpinner';
 import { Card } from '@/shared/ui/Card';
-import { Calendar, User, Truck, Users, Clock, ChevronRight, MapPin } from 'lucide-react';
+import { Calendar, User, Truck, Users, Clock, ChevronRight, MapPin, AlertTriangle } from 'lucide-react';
 import { RouteStatus } from '../../types';
 
 const FiltersContainer = styled.div`
@@ -151,6 +149,76 @@ const PageInfo = styled.div`
     color: ${({ theme }) => theme.colors.slate[600]};
 `;
 
+const pulseAnimation = keyframes`
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+`;
+
+const PulsingBadge = styled.span<{ variant: 'default' | 'primary' | 'success' | 'warning' | 'danger' }>`
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    animation: ${pulseAnimation} 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+    ${({ variant, theme }) => {
+        switch (variant) {
+            case 'primary':
+                return css`
+                    background-color: ${theme.colors.primary[100]};
+                    color: ${theme.colors.primary[700]};
+                `;
+            case 'success':
+                return css`
+                    background-color: ${theme.colors.success[100]};
+                    color: ${theme.colors.success[700]};
+                `;
+            case 'warning':
+                return css`
+                    background-color: ${theme.colors.warning[100]};
+                    color: ${theme.colors.warning[700]};
+                `;
+            case 'danger':
+                return css`
+                    background-color: ${theme.colors.danger[100]};
+                    color: ${theme.colors.danger[700]};
+                `;
+            default:
+                return css`
+                    background-color: ${theme.colors.slate[100]};
+                    color: ${theme.colors.slate[700]};
+                `;
+        }
+    }}
+`;
+
+const StatusBadgeContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.xs};
+    align-items: flex-start;
+`;
+
+const DelayBadge = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background-color: ${({ theme }) => theme.colors.danger[100]};
+    color: ${({ theme }) => theme.colors.danger[700]};
+`;
+
 const statusLabels: Record<RouteStatus, string> = {
     PLANNED: 'Zaplanowana',
     IN_PROGRESS: 'W trakcie',
@@ -250,6 +318,8 @@ export const RoutesList: React.FC = () => {
                         <Table.Body>
                             {data.content.map((route) => {
                                 const estimatedChildrenCount = Math.ceil(route.stopsCount / 2);
+                                const isInProgress = route.status === 'IN_PROGRESS';
+                                const isDelayed = route.isDelayed;
 
                                 return (
                                     <RouteRow key={route.id} onClick={() => handleRouteClick(route.id)}>
@@ -290,11 +360,17 @@ export const RoutesList: React.FC = () => {
                                             <StopsInfo>
                                                 <StopsMain>
                                                     <Users size={16} />
-                                                    {estimatedChildrenCount} {estimatedChildrenCount === 1 ? 'dziecko' : 'dzieci'}
+                                                    {estimatedChildrenCount}{' '}
+                                                    {estimatedChildrenCount === 1 ? 'dziecko' : 'dzieci'}
                                                 </StopsMain>
                                                 <StopsSub>
-                                                    <MapPin size={12} />
-                                                    ({route.stopsCount} {route.stopsCount === 1 ? 'punkt' : route.stopsCount < 5 ? 'punkty' : 'punktów'})
+                                                    <MapPin size={12} />({route.stopsCount}{' '}
+                                                    {route.stopsCount === 1
+                                                        ? 'punkt'
+                                                        : route.stopsCount < 5
+                                                            ? 'punkty'
+                                                            : 'punktów'}
+                                                    )
                                                 </StopsSub>
                                             </StopsInfo>
                                         </Table.Cell>
@@ -305,9 +381,23 @@ export const RoutesList: React.FC = () => {
                                             </MetaInfo>
                                         </Table.Cell>
                                         <Table.Cell>
-                                            <Badge variant={statusVariants[route.status]}>
-                                                {statusLabels[route.status]}
-                                            </Badge>
+                                            <StatusBadgeContainer>
+                                                {isInProgress ? (
+                                                    <PulsingBadge variant={statusVariants[route.status]}>
+                                                        {statusLabels[route.status]}
+                                                    </PulsingBadge>
+                                                ) : (
+                                                    <Badge variant={statusVariants[route.status]}>
+                                                        {statusLabels[route.status]}
+                                                    </Badge>
+                                                )}
+                                                {isDelayed && (
+                                                    <DelayBadge>
+                                                        <AlertTriangle size={12} />
+                                                        Opóźniona {route.delayMinutes && `(${route.delayMinutes} min)`}
+                                                    </DelayBadge>
+                                                )}
+                                            </StatusBadgeContainer>
                                         </Table.Cell>
                                         <Table.Cell>
                                             <ActionCell>
@@ -322,19 +412,13 @@ export const RoutesList: React.FC = () => {
 
                     {data.totalPages > 1 && (
                         <PaginationContainer>
-                            <PaginationButton
-                                onClick={() => setPage(page - 1)}
-                                disabled={data.first}
-                            >
+                            <PaginationButton onClick={() => setPage(page - 1)} disabled={data.first}>
                                 Poprzednia
                             </PaginationButton>
                             <PageInfo>
                                 Strona {page + 1} z {data.totalPages}
                             </PageInfo>
-                            <PaginationButton
-                                onClick={() => setPage(page + 1)}
-                                disabled={data.last}
-                            >
+                            <PaginationButton onClick={() => setPage(page + 1)} disabled={data.last}>
                                 Następna
                             </PaginationButton>
                         </PaginationContainer>

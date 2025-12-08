@@ -3,12 +3,27 @@ export type RouteStatus =
     | 'IN_PROGRESS'
     | 'COMPLETED'
     | 'CANCELLED'
-    | 'DRIVER_MISSING'; // ← DODANE
-
+    | 'DRIVER_MISSING';
 
 export type StopType = 'PICKUP' | 'DROPOFF';
 
 export type ExecutionStatus = 'COMPLETED' | 'NO_SHOW' | 'REFUSED';
+
+export type DelayDetectionType = 'RETROSPECTIVE' | 'PREDICTIVE';
+
+export interface StopDelayInfo {
+    isDelayed: boolean;
+    delayMinutes: number;
+    delayType: DelayDetectionType;
+    detectedAt: string;
+}
+
+export interface RouteDelayInfo {
+    hasDelays: boolean;
+    maxDelayMinutes: number;
+    totalDelayedStops: number;
+    lastDelayDetectedAt: string;
+}
 
 export interface AddressWithCoordinates {
     label: string;
@@ -52,6 +67,7 @@ export interface RouteStop {
     executedByName: string | null;
     guardian: Guardian;
     transportNeeds: TransportNeeds;
+    delayInfo: StopDelayInfo | null;
 }
 
 export interface CreateStopRequest {
@@ -91,7 +107,10 @@ export interface RouteListItem {
     estimatedStartTime: string;
     estimatedEndTime: string;
     stopsCount: number;
+    isDelayed: boolean;
+    delayMinutes: number | null;
 }
+
 
 export interface RouteDetail {
     id: string;
@@ -105,7 +124,7 @@ export interface RouteDetail {
         firstName: string;
         lastName: string;
         phone: string;
-    } | null; // ← ZMIANA
+    } | null;
     vehicle: {
         id: string;
         registrationNumber: string;
@@ -129,6 +148,8 @@ export interface RouteDetail {
     }>;
     createdAt: string;
     updatedAt: string;
+    isDelayed: boolean;
+    delayInfo: RouteDelayInfo | null;
 }
 
 export interface ChildSchedule {
@@ -244,10 +265,6 @@ export interface AutoMatchSuggestion {
     estimatedDropoffTime: string;
 }
 
-// src/features/routes/types.ts
-
-// DODAJ na końcu pliku:
-
 export type RouteSeriesStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED';
 
 export type DayOfWeek = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
@@ -270,7 +287,7 @@ export interface RouteSeriesDetail {
     companyId: string;
     seriesName: string;
     routeNameTemplate: string;
-    driverId: string | null; // ← ZMIANA
+    driverId: string | null;
     vehicleId: string;
     estimatedStartTime: string;
     estimatedEndTime: string;
@@ -352,45 +369,6 @@ export interface CancelRouteSeriesResponse {
     seriesId: string;
     status: RouteSeriesStatus;
     futureRoutesCancelled: number;
-}
-
-// MODYFIKUJ RouteDetail - dodaj seriesId
-export interface RouteDetail {
-    id: string;
-    companyId: string;
-    seriesId: string | null; // ← DODANE
-    routeName: string;
-    date: string;
-    status: RouteStatus;
-    driver: {
-        id: string;
-        firstName: string;
-        lastName: string;
-        phone: string;
-    } | null; // ← ZMIANA
-    vehicle: {
-        id: string;
-        registrationNumber: string;
-        make: string;
-        model: string;
-        capacity: {
-            totalSeats: number;
-            wheelchairSpaces: number;
-        };
-    };
-    estimatedStartTime: string;
-    estimatedEndTime: string;
-    actualStartTime: string | null;
-    actualEndTime: string | null;
-    stops: RouteStop[];
-    notes: Array<{
-        id: string;
-        author: string;
-        content: string;
-        createdAt: string;
-    }>;
-    createdAt: string;
-    updatedAt: string;
 }
 
 export interface UpdateRouteStatusRequest {

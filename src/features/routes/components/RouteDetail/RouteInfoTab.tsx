@@ -1,10 +1,8 @@
-// src/features/routes/components/RouteDetail/RouteInfoTab.tsx
-
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Badge } from '@/shared/ui/Badge';
 import { Button } from '@/shared/ui/Button';
-import { User, Truck, Clock, MapPin, Users, RefreshCw, Activity } from 'lucide-react';
+import { User, Truck, Clock, MapPin, Users, RefreshCw, Activity, AlertTriangle } from 'lucide-react';
 import { RouteDetail } from '../../types';
 import { statusVariants, statusLabels } from '../../hooks/useRouteDetailLogic';
 import { UpdateRouteStatusModal } from '../UpdateRouteStatusModal';
@@ -116,6 +114,70 @@ const StatusBadgeWrapper = styled.div`
     align-items: center;
 `;
 
+const DelayAlertCard = styled.div`
+    padding: ${({ theme }) => theme.spacing.lg};
+    background: linear-gradient(135deg, ${({ theme }) => theme.colors.red[50]} 0%, ${({ theme }) => theme.colors.orange[50]} 100%);
+    border-radius: ${({ theme }) => theme.borderRadius.xl};
+    border: 1px solid ${({ theme }) => theme.colors.red[200]};
+    margin-bottom: ${({ theme }) => theme.spacing.lg};
+`;
+
+const DelayHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.sm};
+    margin-bottom: ${({ theme }) => theme.spacing.md};
+`;
+
+const DelayIcon = styled.div`
+    width: 40px;
+    height: 40px;
+    background: ${({ theme }) => theme.colors.red[100]};
+    border-radius: ${({ theme }) => theme.borderRadius.full};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: ${({ theme }) => theme.colors.red[700]};
+`;
+
+const DelayTitle = styled.h3`
+    font-size: 1rem;
+    font-weight: 700;
+    color: ${({ theme }) => theme.colors.red[900]};
+    margin: 0;
+`;
+
+const DelayStats = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: ${({ theme }) => theme.spacing.md};
+`;
+
+const DelayStat = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.xs};
+`;
+
+const DelayStatLabel = styled.div`
+    font-size: 0.75rem;
+    color: ${({ theme }) => theme.colors.slate[600]};
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+`;
+
+const DelayStatValue = styled.div`
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: ${({ theme }) => theme.colors.red[700]};
+`;
+
+const DelayStatTime = styled.div`
+    font-size: 0.75rem;
+    color: ${({ theme }) => theme.colors.slate[500]};
+`;
+
 interface RouteInfoTabProps {
     route: RouteDetail;
     onDriverClick: () => void;
@@ -133,7 +195,6 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
     const estimatedChildrenCount = Math.ceil(route.stops.length / 2);
     const canReassign = route.status === 'PLANNED' || route.status === 'DRIVER_MISSING';
     const canChangeStatus = ['PLANNED', 'IN_PROGRESS', 'DRIVER_MISSING'].includes(route.status);
-
     const handleChangeVehicle = () => {
         toast('Funkcja zmiany pojazdu będzie dostępna wkrótce', {
             icon: '🚧',
@@ -151,8 +212,52 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
         });
     };
 
+    const formatTimeAgo = (isoString: string): string => {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffMs = now.getTime() - date.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+
+        if (diffMins < 60) {
+            return `${diffMins} min temu`;
+        }
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24) {
+            return `${diffHours}h temu`;
+        }
+        const diffDays = Math.floor(diffHours / 24);
+        return `${diffDays}d temu`;
+    };
+
     return (
         <div>
+            {route.isDelayed && route.delayInfo && (
+                <DelayAlertCard>
+                    <DelayHeader>
+                        <DelayIcon>
+                            <AlertTriangle size={24} />
+                        </DelayIcon>
+                        <DelayTitle>Trasa opóźniona</DelayTitle>
+                    </DelayHeader>
+                    <DelayStats>
+                        <DelayStat>
+                            <DelayStatLabel>Maksymalne opóźnienie</DelayStatLabel>
+                            <DelayStatValue>{route.delayInfo.maxDelayMinutes} min</DelayStatValue>
+                        </DelayStat>
+                        <DelayStat>
+                            <DelayStatLabel>Opóźnionych stopów</DelayStatLabel>
+                            <DelayStatValue>{route.delayInfo.totalDelayedStops}</DelayStatValue>
+                        </DelayStat>
+                        <DelayStat>
+                            <DelayStatLabel>Ostatnie wykrycie</DelayStatLabel>
+                            <DelayStatTime>
+                                {formatTimeAgo(route.delayInfo.lastDelayDetectedAt)}
+                            </DelayStatTime>
+                        </DelayStat>
+                    </DelayStats>
+                </DelayAlertCard>
+            )}
+
             <StatusCard>
                 <StatusHeader>
                     <StatusTitle>
@@ -216,9 +321,9 @@ export const RouteInfoTab: React.FC<RouteInfoTabProps> = ({
                             </>
                         ) : (
                             <>
-                                <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>
-                                    Nie przypisano
-                                </span>
+                            <span style={{ color: '#f59e0b', fontStyle: 'italic' }}>
+                                Nie przypisano
+                            </span>
                                 {canReassign && (
                                     <ChangeButton
                                         variant="primary"

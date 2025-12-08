@@ -1,9 +1,8 @@
-// src/features/routes/components/RouteDetail/RouteTimeline.tsx
-
 import React, { RefObject } from 'react';
 import { Check, MapPin, Phone, Ban, CheckCircle, XCircle, AlertCircle, Clock, MoreVertical } from 'lucide-react';
 import { RouteStop } from '../../types';
 import { executionStatusLabels } from '../../hooks/useRouteDetailLogic';
+import { DelayBadge } from '../DelayBadge';
 import {
     RouteTimelineContainer,
     TimelineStop,
@@ -23,8 +22,6 @@ import {
     ExecutionHeader,
     ExecutionDetails,
 } from './RouteTimeline.styles';
-
-// Import StopActions jeśli został dodany do styles, lub zdefiniuj tutaj
 import styled from 'styled-components';
 
 const StopActions = styled.button`
@@ -56,7 +53,6 @@ const StopActions = styled.button`
         transform: scale(0.95);
     }
 
-    /* Na mobile zawsze widoczny */
     @media (max-width: ${({ theme }) => theme.breakpoints.md}) {
         opacity: 1;
         pointer-events: auto;
@@ -68,6 +64,57 @@ const TimelineStopWrapper = styled.div`
         opacity: 1;
         pointer-events: auto;
     }
+`;
+
+const DelaySection = styled.div`
+    margin-top: ${({ theme }) => theme.spacing.sm};
+    padding: ${({ theme }) => theme.spacing.sm};
+    background: ${({ theme }) => theme.colors.orange[50]};
+    border-left: 3px solid ${({ theme }) => theme.colors.orange[500]};
+    border-radius: ${({ theme }) => theme.borderRadius.md};
+`;
+
+const DelayHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${({ theme }) => theme.spacing.xs};
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: ${({ theme }) => theme.colors.orange[900]};
+    margin-bottom: ${({ theme }) => theme.spacing.xs};
+`;
+
+const DelayDetails = styled.div`
+    font-size: 0.8125rem;
+    color: ${({ theme }) => theme.colors.slate[700]};
+    line-height: 1.5;
+
+    strong {
+        font-weight: 600;
+        color: ${({ theme }) => theme.colors.slate[900]};
+    }
+`;
+
+const StopHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: ${({ theme }) => theme.spacing.sm};
+    margin-bottom: ${({ theme }) => theme.spacing.sm};
+`;
+
+const StopHeaderLeft = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: ${({ theme }) => theme.spacing.xs};
+    flex: 1;
+`;
+
+const StopHeaderRight = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: ${({ theme }) => theme.spacing.xs};
 `;
 
 interface RouteTimelineProps {
@@ -92,6 +139,20 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                                                 handleStopContextMenu,
                                                                 canEditStops = false,
                                                             }) => {
+    const formatTime = (isoString: string): string => {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString('pl-PL', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+    };
+
+    const getDelayTypeLabel = (type: string): string => {
+        return type === 'RETROSPECTIVE'
+            ? 'Wykonany po czasie'
+            : 'Przekroczony czas planowany';
+    };
+
     return (
         <RouteTimelineContainer>
             {displayStops.map((stop) => {
@@ -99,6 +160,7 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                 const isExecuted = !!stop.executionStatus;
                 const isCurrent = false;
                 const canEdit = canEditStops && !isCancelled && !isExecuted;
+                const hasDelay = !!stop.delayInfo;
 
                 return (
                     <TimelineStopWrapper key={stop.id}>
@@ -138,17 +200,26 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                     </StopActions>
                                 )}
 
-                                <StopTypeBadge $type={stop.stopType}>
-                                    {stop.stopType === 'PICKUP' ? '📍 Odbiór' : '🏁 Dowóz'}
-                                </StopTypeBadge>
-                                <ChildName
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleChildClick(stop.childId);
-                                    }}
-                                >
-                                    {stop.childFirstName} {stop.childLastName}
-                                </ChildName>
+                                <StopHeader>
+                                    <StopHeaderLeft>
+                                        <StopTypeBadge $type={stop.stopType}>
+                                            {stop.stopType === 'PICKUP' ? '🚪 Odbiór' : '🏠 Dowóz'}
+                                        </StopTypeBadge>
+                                        <ChildName
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleChildClick(stop.childId);
+                                            }}
+                                        >
+                                            {stop.childFirstName} {stop.childLastName}
+                                        </ChildName>
+                                    </StopHeaderLeft>
+
+                                    <StopHeaderRight>
+                                        {hasDelay && <DelayBadge delayInfo={stop.delayInfo!} />}
+                                    </StopHeaderRight>
+                                </StopHeader>
+
                                 <AddressRow>
                                     <MapPin
                                         size={14}
@@ -167,16 +238,48 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                         , {stop.address.postalCode} {stop.address.city}
                                     </div>
                                 </AddressRow>
+
                                 <TimeRow>
                                     <TimeItem>
                                         <Clock size={14} />
                                         <strong>Planowany:</strong> {stop.estimatedTime}
                                     </TimeItem>
+                                    {stop.actualTime && (
+                                        <TimeItem>
+                                            <Clock size={14} />
+                                            <strong>Rzeczywisty:</strong> {formatTime(stop.actualTime)}
+                                        </TimeItem>
+                                    )}
                                     <TimeItem>
                                         <Phone size={14} />
                                         <strong>Opiekun:</strong> {stop.guardian.phone}
                                     </TimeItem>
                                 </TimeRow>
+
+                                {hasDelay && (
+                                    <DelaySection>
+                                        <DelayHeader>
+                                            <AlertCircle size={16} />
+                                            Szczegóły opóźnienia
+                                        </DelayHeader>
+                                        <DelayDetails>
+                                            <div>
+                                                <strong>Typ:</strong> {getDelayTypeLabel(stop.delayInfo!.delayType)}
+                                            </div>
+                                            <div>
+                                                <strong>Wykryto:</strong>{' '}
+                                                {new Date(stop.delayInfo!.detectedAt).toLocaleString('pl-PL', {
+                                                    day: '2-digit',
+                                                    month: '2-digit',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                })}
+                                            </div>
+                                        </DelayDetails>
+                                    </DelaySection>
+                                )}
+
                                 {stop.isCancelled && (
                                     <CancellationSection>
                                         <CancellationHeader>
@@ -202,6 +305,7 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                         </CancellationDetails>
                                     </CancellationSection>
                                 )}
+
                                 {!stop.isCancelled && stop.executionStatus && (
                                     <ExecutionSection $status={stop.executionStatus}>
                                         <ExecutionHeader $status={stop.executionStatus}>
@@ -221,6 +325,16 @@ export const RouteTimeline: React.FC<RouteTimelineProps> = ({
                                                 <strong>Status:</strong>{' '}
                                                 {executionStatusLabels[stop.executionStatus]}
                                             </div>
+                                            {stop.executedByName && (
+                                                <div>
+                                                    <strong>Wykonawca:</strong> {stop.executedByName}
+                                                </div>
+                                            )}
+                                            {stop.executionNotes && (
+                                                <div style={{ marginTop: '4px' }}>
+                                                    <strong>Notatki:</strong> {stop.executionNotes}
+                                                </div>
+                                            )}
                                         </ExecutionDetails>
                                     </ExecutionSection>
                                 )}
