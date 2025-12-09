@@ -1,6 +1,7 @@
-// src/widgets/Sidebar/Sidebar.tsx - WERSJA Z SERIAMI TRAS
+// src/widgets/Sidebar/Sidebar.tsx - WERSJA Z SUBMENU DLA STATYSTYK
 
 import React, { useState, useEffect } from 'react';
+import styled from 'styled-components';
 import {
     Users,
     Baby,
@@ -13,7 +14,13 @@ import {
     ChevronRight,
     Home,
     AlertTriangle,
-    Repeat, // ← DODANE dla serii tras
+    Repeat,
+    BarChart3,
+    ChevronDown,
+    Truck,
+    Package,
+    Activity,
+    Clock,
 } from 'lucide-react';
 import {
     SidebarContainer,
@@ -36,11 +43,59 @@ import {
     ToggleSidebarButton,
 } from './Sidebar.styles';
 
+// Dodatkowe style dla submenu
+const SubmenuContainer = styled.div<{ $isOpen: boolean; $isCollapsed: boolean }>`
+  display: ${({ $isOpen }) => ($isOpen ? 'block' : 'none')};
+  padding-left: ${({ $isCollapsed }) => ($isCollapsed ? '0' : '2.5rem')};
+  margin-top: ${({ theme }) => theme.spacing.xs};
+`;
+
+const SubmenuItem = styled.div<{ $isActive: boolean; $isCollapsed: boolean }>`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.spacing.sm};
+  padding: ${({ theme }) => theme.spacing.sm} ${({ theme }) => theme.spacing.md};
+  color: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[600] : theme.colors.slate[600]};
+  background: ${({ $isActive, theme }) =>
+    $isActive ? theme.colors.primary[50] : 'transparent'};
+  border-radius: ${({ theme }) => theme.borderRadius.lg};
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: ${({ $isActive }) => ($isActive ? 600 : 500)};
+  transition: all ${({ theme }) => theme.transitions.fast};
+
+  &:hover {
+    background: ${({ theme }) => theme.colors.slate[100]};
+    color: ${({ theme }) => theme.colors.slate[900]};
+  }
+
+  ${({ $isCollapsed }) =>
+    $isCollapsed &&
+    `
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  `}
+`;
+
+const ChevronIcon = styled.div<{ $isOpen: boolean }>`
+  margin-left: auto;
+  transition: transform 200ms ease;
+  transform: ${({ $isOpen }) => ($isOpen ? 'rotate(180deg)' : 'rotate(0)')};
+`;
+
 interface NavItemConfig {
     id: string;
     label: string;
     icon: React.ComponentType<{ size?: number }>;
     path: string;
+    submenu?: Array<{
+        id: string;
+        label: string;
+        icon: React.ComponentType<{ size?: number }>;
+        path: string;
+    }>;
 }
 
 const navigationItems: NavItemConfig[] = [
@@ -81,7 +136,7 @@ const navigationItems: NavItemConfig[] = [
         path: '/routes',
     },
     {
-        id: 'route-series', // ← NOWE
+        id: 'route-series',
         label: 'Serie tras',
         icon: Repeat,
         path: '/routes/series',
@@ -92,12 +147,48 @@ const navigationItems: NavItemConfig[] = [
         icon: AlertTriangle,
         path: '/routes/unassigned',
     },
+    // ← NOWE: Statystyki z submenu
+    {
+        id: 'statistics',
+        label: 'Statystyki',
+        icon: BarChart3,
+        path: '/statistics/drivers',
+        submenu: [
+            {
+                id: 'statistics-drivers',
+                label: 'Kierowcy',
+                icon: Users,
+                path: '/statistics/drivers',
+            },
+            {
+                id: 'statistics-fleet',
+                label: 'Flota',
+                icon: Truck,
+                path: '/statistics/fleet',
+            },
+            {
+                id: 'statistics-workload',
+                label: 'Obciążenie',
+                icon: Activity,
+                path: '/statistics/workload',
+            },
+            {
+                id: 'statistics-service',
+                label: 'Jakość',
+                icon: Clock,
+                path: '/statistics/service-quality',
+            },
+        ],
+    },
 ];
 
 export const Sidebar: React.FC = () => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileOpen, setIsMobileOpen] = useState(false);
     const [currentPath, setCurrentPath] = useState(window.location.pathname);
+    const [openSubmenu, setOpenSubmenu] = useState<string | null>(
+        currentPath.startsWith('/statistics') ? 'statistics' : null
+    );
 
     useEffect(() => {
         const handlePopState = () => {
@@ -127,16 +218,14 @@ export const Sidebar: React.FC = () => {
     }, [isCollapsed]);
 
     const handleNavigate = (path: string) => {
-        console.log('🔵 Sidebar: Navigating to:', path);
+        console.log('📍 Sidebar: Navigating to:', path);
         window.history.pushState({}, '', path);
         window.dispatchEvent(new PopStateEvent('popstate'));
         setCurrentPath(path);
         setIsMobileOpen(false);
     };
 
-    // ROZSZERZONA FUNKCJA isActive - obsługuje /routes/series
     const isActive = (path: string): boolean => {
-        // Exact match dla specjalnych ścieżek
         if (path === '/routes/unassigned') {
             return currentPath === '/routes/unassigned';
         }
@@ -145,7 +234,6 @@ export const Sidebar: React.FC = () => {
             return currentPath === '/routes/create';
         }
 
-        // ← NOWE: Obsługa serii tras
         if (path === '/routes/series') {
             return currentPath === '/routes/series' || currentPath.startsWith('/routes/series/');
         }
@@ -154,24 +242,38 @@ export const Sidebar: React.FC = () => {
             return currentPath === '/dashboard' || currentPath === '/';
         }
 
-        // Dla /routes - tylko główna lista tras (bez podstron)
-        // WAŻNE: Musi być PRZED sprawdzaniem /routes/series
+        // Statystyki - parent active jeśli którykolwiek submenu jest aktywne
+        if (path === '/statistics/drivers') {
+            return currentPath.startsWith('/statistics');
+        }
+
         if (path === '/routes') {
             return currentPath === '/routes';
         }
 
-        // Dla /guardians - główna strona lub szczegóły
         if (path === '/guardians') {
             return currentPath === '/guardians' ||
                 (currentPath.startsWith('/guardians/') && currentPath !== '/guardians');
         }
 
-        // Dla pozostałych - standardowe sprawdzenie
         if (path === '/children' || path === '/vehicles' || path === '/drivers') {
             return currentPath === path || currentPath.startsWith(path + '/');
         }
 
         return currentPath === path;
+    };
+
+    const toggleSubmenu = (itemId: string, itemPath: string) => {
+        if (openSubmenu === itemId) {
+            setOpenSubmenu(null);
+        } else {
+            setOpenSubmenu(itemId);
+            // Jeśli nie ma submenu, nawiguj
+            const item = navigationItems.find((i) => i.id === itemId);
+            if (!item?.submenu) {
+                handleNavigate(itemPath);
+            }
+        }
     };
 
     const toggleSidebar = () => {
@@ -215,26 +317,56 @@ export const Sidebar: React.FC = () => {
                         {navigationItems.map((item) => {
                             const Icon = item.icon;
                             const active = isActive(item.path);
+                            const hasSubmenu = Boolean(item.submenu);
+                            const isSubmenuOpen = openSubmenu === item.id;
 
                             return (
-                                <NavItem
-                                    key={item.id}
-                                    $isActive={active}
-                                    $isCollapsed={isCollapsed}
-                                    onClick={() => {
-                                        console.log('🟢 Clicked:', item.label, 'Path:', item.path);
-                                        handleNavigate(item.path);
-                                    }}
-                                    aria-label={item.label}
-                                    aria-current={active ? 'page' : undefined}
-                                >
-                                    <NavItemIcon>
-                                        <Icon size={20} />
-                                    </NavItemIcon>
-                                    <NavItemText $isCollapsed={isCollapsed}>
-                                        {item.label}
-                                    </NavItemText>
-                                </NavItem>
+                                <div key={item.id}>
+                                    <NavItem
+                                        $isActive={active}
+                                        $isCollapsed={isCollapsed}
+                                        onClick={() => toggleSubmenu(item.id, item.path)}
+                                        aria-label={item.label}
+                                        aria-current={active ? 'page' : undefined}
+                                        aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
+                                    >
+                                        <NavItemIcon>
+                                            <Icon size={20} />
+                                        </NavItemIcon>
+                                        <NavItemText $isCollapsed={isCollapsed}>
+                                            {item.label}
+                                        </NavItemText>
+                                        {hasSubmenu && !isCollapsed && (
+                                            <ChevronIcon $isOpen={isSubmenuOpen}>
+                                                <ChevronDown size={16} />
+                                            </ChevronIcon>
+                                        )}
+                                    </NavItem>
+
+                                    {hasSubmenu && item.submenu && (
+                                        <SubmenuContainer $isOpen={isSubmenuOpen} $isCollapsed={isCollapsed}>
+                                            {item.submenu.map((subitem) => {
+                                                const SubIcon = subitem.icon;
+                                                const subActive = currentPath === subitem.path;
+
+                                                return (
+                                                    <SubmenuItem
+                                                        key={subitem.id}
+                                                        $isActive={subActive}
+                                                        $isCollapsed={isCollapsed}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleNavigate(subitem.path);
+                                                        }}
+                                                    >
+                                                        <SubIcon size={16} />
+                                                        {!isCollapsed && subitem.label}
+                                                    </SubmenuItem>
+                                                );
+                                            })}
+                                        </SubmenuContainer>
+                                    )}
+                                </div>
                             );
                         })}
                     </NavSection>

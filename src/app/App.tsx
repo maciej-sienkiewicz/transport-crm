@@ -1,4 +1,5 @@
-// src/app/App.tsx
+// src/app/App.tsx - UPDATED with Statistics Module
+
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { AppProvider } from './providers/AppProvider';
@@ -13,13 +14,20 @@ import { DriverDetailPage } from '@/pages/drivers/DriverDetailPage';
 import { RoutesListPage } from '@/pages/routes/RoutesListPage';
 import { RouteDetailPage } from '@/pages/routes/RouteDetailPage';
 import { CreateRoutePage } from '@/pages/routes/CreateRoutePage';
+import { DashboardPage } from '@/pages/dashboard/DashboardPage';
+import { AlertsOverviewPage } from '@/pages/alerts/AlertsOverviewPage';
+import { UnassignedSchedulesPage } from '@/pages/routes/UnassignedSchedulesPage';
+import { RouteSeriesListPage } from '@/pages/routes/RouteSeriesListPage';
+import { RouteSeriesDetailPage } from '@/pages/routes/RouteSeriesDetailPage';
 import { UserInfo } from '@/widgets/UserInfo/UserInfo';
 import { Sidebar } from '@/widgets/Sidebar';
-import {DashboardPage} from "@/pages/dashboard/DashboardPage.tsx";
-import {AlertsOverviewPage} from "@/pages/alerts/AlertsOverviewPage.tsx";
-import {UnassignedSchedulesPage} from "@/pages/routes/UnassignedSchedulesPage.tsx";
-import {RouteSeriesListPage} from "@/pages/routes/RouteSeriesListPage.tsx";
-import {RouteSeriesDetailPage} from "@/pages/routes/RouteSeriesDetailPage.tsx";
+
+// Statistics Pages
+import { DriverPerformancePage } from '@/pages/statistics/DriverPerformancePage';
+import { DriverDetailPage as StatDriverDetailPage } from '@/pages/statistics/DriverDetailPage';
+import { FleetAnalyticsPage } from '@/pages/statistics/FleetAnalyticsPage';
+import { WorkloadAnalyticsPage } from '@/pages/statistics/WorkloadAnalyticsPage';
+import { ServiceQualityPage } from '@/pages/statistics/ServiceQualityPage';
 
 const AppContainer = styled.div`
     min-height: 100vh;
@@ -71,12 +79,36 @@ type Route =
     | { type: 'route-create' }
     | { type: 'unassigned-schedules' }
     | { type: 'route-series-list' }
-    | { type: 'route-series-detail'; id: string };
+    | { type: 'route-series-detail'; id: string }
+    // Statistics Routes
+    | { type: 'statistics-drivers' }
+    | { type: 'statistics-driver-detail'; id: string }
+    | { type: 'statistics-fleet' }
+    | { type: 'statistics-capacity' }
+    | { type: 'statistics-workload' }
+    | { type: 'statistics-service-quality' };
 
 function App() {
     const [currentRoute, setCurrentRoute] = useState<Route>(() => {
         const path = window.location.pathname;
 
+        // Statistics Routes
+        if (path === '/statistics/drivers') {
+            return { type: 'statistics-drivers' };
+        } else if (path.startsWith('/statistics/drivers/')) {
+            const id = path.split('/')[3];
+            return { type: 'statistics-driver-detail', id };
+        } else if (path === '/statistics/fleet') {
+            return { type: 'statistics-fleet' };
+        } else if (path === '/statistics/capacity') {
+            return { type: 'statistics-capacity' };
+        } else if (path === '/statistics/workload') {
+            return { type: 'statistics-workload' };
+        } else if (path === '/statistics/service-quality') {
+            return { type: 'statistics-service-quality' };
+        }
+
+        // Existing Routes
         if (path === '/routes/series') {
             return { type: 'route-series-list' };
         } else if (path.startsWith('/routes/series/')) {
@@ -126,7 +158,24 @@ function App() {
         const handlePopState = () => {
             const path = window.location.pathname;
 
-            if (path === '/routes/series') {
+            // Statistics Routes
+            if (path === '/statistics/drivers') {
+                setCurrentRoute({ type: 'statistics-drivers' });
+            } else if (path.startsWith('/statistics/drivers/')) {
+                const id = path.split('/')[3];
+                setCurrentRoute({ type: 'statistics-driver-detail', id });
+            } else if (path === '/statistics/fleet') {
+                setCurrentRoute({ type: 'statistics-fleet' });
+            } else if (path === '/statistics/capacity') {
+                setCurrentRoute({ type: 'statistics-capacity' });
+            } else if (path === '/statistics/workload') {
+                setCurrentRoute({ type: 'statistics-workload' });
+            } else if (path === '/statistics/service-quality') {
+                setCurrentRoute({ type: 'statistics-service-quality' });
+            }
+
+            // Existing routes handling...
+            else if (path === '/routes/series') {
                 setCurrentRoute({ type: 'route-series-list' });
             } else if (path.startsWith('/routes/series/')) {
                 const id = path.split('/')[3];
@@ -182,6 +231,19 @@ function App() {
 
     const renderPage = () => {
         switch (currentRoute.type) {
+            // Statistics Routes
+            case 'statistics-drivers':
+                return <DriverPerformancePage />;
+            case 'statistics-driver-detail':
+                return <StatDriverDetailPage id={currentRoute.id} />;
+            case 'statistics-fleet':
+                return <FleetAnalyticsPage />;
+            case 'statistics-workload':
+                return <WorkloadAnalyticsPage />;
+            case 'statistics-service-quality':
+                return <ServiceQualityPage />;
+
+            // Existing Routes
             case 'route-series-list':
                 return <RouteSeriesListPage />;
             case 'route-series-detail':
